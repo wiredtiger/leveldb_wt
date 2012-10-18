@@ -393,6 +393,7 @@ class Benchmark {
   Benchmark()
   : num_(FLAGS_num),
     value_size_(FLAGS_value_size),
+    db_num_(0),
     entries_per_batch_(1),
     reads_(FLAGS_reads < 0 ? FLAGS_num : FLAGS_reads),
     heap_counter_(0) {
@@ -537,6 +538,10 @@ class Benchmark {
       if (method != NULL) {
         RunBenchmark(num_threads, name, method);
       }
+    }
+    if (conn_ != NULL) {
+      conn_->close(conn_, NULL);
+      conn_ = NULL;
     }
   }
 
@@ -703,11 +708,14 @@ class Benchmark {
   void Open() {
     std::stringstream config;
     config.str("");
-    config << "create,cache_size=" << FLAGS_cache_size;
+    config << "create";
+    if (FLAGS_cache_size > 0)
+      config << ",cache_size=" << FLAGS_cache_size;
     /* TODO: Translate write_buffer_size - maybe it's chunk size?
     options.write_buffer_size = FLAGS_write_buffer_size;
     */
     config << ",extensions=[snappy_compress.so]";
+    //config << ",verbose=[lsm]";
     Env::Default()->CreateDir(FLAGS_db);
     wiredtiger_open(FLAGS_db, NULL, config.str().c_str(), &conn_);
     assert(conn_ != NULL);
@@ -725,7 +733,8 @@ class Benchmark {
     config << "key_format=S,value_format=S";
     config << ",internal_page_max=16kb";
     config << ",leaf_page_max=16kb";
-    /* TODO: I don't really like disabling bloom by default. */
+    config << ",lsm_chunk_size=20MB";
+    //config << ",lsm_bloom_newest=true";
     if (FLAGS_bloom_bits > 0)
         config << ",bloom_bit_count=" << FLAGS_bloom_bits;
     else if (FLAGS_bloom_bits == 0)

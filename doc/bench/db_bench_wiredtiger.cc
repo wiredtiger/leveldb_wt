@@ -37,14 +37,20 @@
 //      sstables    -- Print sstable info
 //      heapprofile -- Dump a heap profile (if supported by this port)
 static const char* FLAGS_benchmarks =
+    "fillseqsync,"
+    "fillrandsync,"
     "fillseq,"
-    "fillsync,"
+    "fillseqbatch,"
     "fillrandom,"
+    "fillrandbatch,"
     "overwrite,"
     "readrandom,"
+#if 0
     "readrandom,"  // Extra run to allow previous compactions to quiesce
+#endif
     "readseq,"
     "readreverse,"
+#if 0
     "compact,"
     "readrandom,"
     "readseq,"
@@ -54,6 +60,7 @@ static const char* FLAGS_benchmarks =
     "snappycomp,"
     "snappyuncomp,"
     "acquireload,"
+#endif
     ;
 
 // Number of key/values to place in database
@@ -97,6 +104,8 @@ static bool FLAGS_use_existing_db = false;
 
 // Use the db with the following name.
 static const char* FLAGS_db = NULL;
+
+static int *shuff = NULL;
 
 namespace leveldb {
 
@@ -355,7 +364,9 @@ class Benchmark {
   void PrintEnvironment() {
     int wtmaj, wtmin, wtpatch;
     const char *wtver = wiredtiger_version(&wtmaj, &wtmin, &wtpatch);
-    fprintf(stderr, "WiredTiger:    version %s, lib ver %d, lib rev %d\n",
+    fprintf(stdout, "WiredTiger:    version %s, lib ver %d, lib rev %d patch %d\n",
+      wtver, wtmaj, wtmin, wtpatch);
+    fprintf(stderr, "WiredTiger:    version %s, lib ver %d, lib rev %d patch %d\n",
       wtver, wtmaj, wtmin, wtpatch);
 
 #if defined(__linux)
@@ -447,19 +458,34 @@ class Benchmark {
       if (name == Slice("fillseq")) {
         fresh_db = true;
         method = &Benchmark::WriteSeq;
-      } else if (name == Slice("fillbatch")) {
+      } else if (name == Slice("fillseqbatch")) {
         fresh_db = true;
         entries_per_batch_ = 1000;
         method = &Benchmark::WriteSeq;
+      } else if (name == Slice("fillrandbatch")) {
+        fresh_db = true;
+        entries_per_batch_ = 1000;
+        method = &Benchmark::WriteRandom;
       } else if (name == Slice("fillrandom")) {
         fresh_db = true;
         method = &Benchmark::WriteRandom;
       } else if (name == Slice("overwrite")) {
         fresh_db = false;
         method = &Benchmark::WriteRandom;
-      } else if (name == Slice("fillsync")) {
+      } else if (name == Slice("fillseqsync")) {
         fresh_db = true;
+#if 1
         num_ /= 1000;
+	    if (num_<10) num_=10;
+#endif
+	sync_ = true;
+        method = &Benchmark::WriteSeq;
+      } else if (name == Slice("fillrandsync")) {
+        fresh_db = true;
+#if 1
+        num_ /= 1000;
+	    if (num_<10) num_=10;
+#endif
 	sync_ = true;
         method = &Benchmark::WriteRandom;
       } else if (name == Slice("fill100K")) {
@@ -537,6 +563,14 @@ class Benchmark {
 
       if (method != NULL) {
         RunBenchmark(num_threads, name, method);
+	if (method == &Benchmark::WriteSeq ||
+	    method == &Benchmark::WriteRandom) {
+	    char cmd[200];
+	    std::string test_dir;
+	    Env::Default()->GetTestDirectory(&test_dir);
+	    sprintf(cmd, "du %s", test_dir.c_str());
+	    system(cmd);
+	}
       }
     }
     if (conn_ != NULL) {
@@ -714,7 +748,7 @@ class Benchmark {
     /* TODO: Translate write_buffer_size - maybe it's chunk size?
     options.write_buffer_size = FLAGS_write_buffer_size;
     */
-    config << ",extensions=[snappy_compress.so]";
+    // config << ",extensions=[libwiredtiger_snappy.so]";
     //config << ",verbose=[lsm]";
     Env::Default()->CreateDir(FLAGS_db);
     wiredtiger_open(FLAGS_db, NULL, config.str().c_str(), &conn_);
@@ -731,15 +765,20 @@ class Benchmark {
     // Create tuning options and create the data file
     config.str("");
     config << "key_format=S,value_format=S";
-    config << ",internal_page_max=16kb";
-    config << ",leaf_page_max=16kb";
-    config << ",lsm_chunk_size=20MB";
+    if (FLAGS_cache_size < (10*1024*1024)) {
+        config << ",internal_page_max=4kb";
+        config << ",leaf_page_max=4kb";
+    } else {
+        config << ",internal_page_max=16kb";
+        config << ",leaf_page_max=16kb";
+        config << ",lsm_chunk_size=20MB";
+    }
     //config << ",lsm_bloom_newest=true";
     if (FLAGS_bloom_bits > 0)
         config << ",bloom_bit_count=" << FLAGS_bloom_bits;
     else if (FLAGS_bloom_bits == 0)
         config << ",lsm_bloom=false";
-    config << ",block_compressor=snappy_compress";
+    // config << ",block_compressor=snappy";
 
     int ret = session->create(session, uri_.c_str(), config.str().c_str());
     if (ret != 0) {
@@ -765,6 +804,8 @@ class Benchmark {
       thread->stats.AddMessage(msg);
     }
 
+    if (!seq)
+	thread->rand.Shuffle(shuff, num_);
     RandomGenerator gen;
     int64_t bytes = 0;
     std::stringstream txn_config;
@@ -783,7 +824,7 @@ class Benchmark {
     }
     for (int i = 0; i < num_; i += entries_per_batch_) {
       for (int j = 0; j < entries_per_batch_; j++) {
-        int k = seq ? i+j : (thread->rand.Next() % FLAGS_num);
+        int k = seq ? i+j : shuff[i+j];
         if (k == 0)
           k++; /* Wired Tiger does not support 0 keys. */
         char key[100];
@@ -1123,6 +1164,9 @@ int main(int argc, char** argv) {
       FLAGS_db = default_db_path.c_str();
   }
 
+  shuff = (int *)malloc(FLAGS_num * sizeof(int));
+  for (int i=0; i<FLAGS_num; i++)
+      shuff[i] = i;
   leveldb::Benchmark benchmark;
   benchmark.Run();
   return 0;

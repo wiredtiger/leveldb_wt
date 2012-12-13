@@ -9,12 +9,15 @@ WT_PATH="../wiredtiger/build_posix"
 BDB_PATH="../../db-5.3.21/build_unix"
 SNAPPY_PATH="ext/compressors/snappy/.libs/"
 
-#if [ ! -e "$WT_PATH/$SNAPPY_PATH/libwiredtiger_snappy.so" ]; then
-#	echo "Snappy compression not included in Wired Tiger."
-#	echo "Could not find $WT_PATH/$SNAPPY_PATH/libwiredtiger_snappy.so"
-#	echo `$WT_PATH/$SNAPPY_PATH/`
-#	exit 1
-#fi
+test_compress()
+{
+	if [ ! -e "$WT_PATH/$SNAPPY_PATH/libwiredtiger_snappy.so" ]; then
+		echo "Snappy compression not included in Wired Tiger."
+		echo "Could not find $WT_PATH/$SNAPPY_PATH/libwiredtiger_snappy.so"
+		echo `$WT_PATH/$SNAPPY_PATH/`
+		exit 1
+	fi
+}
 
 if [ `uname` == "Darwin" ]; then
 	lib_path="DYLD_LIBRARY_PATH=$WT_PATH/.libs:$WT_PATH/$SNAPPY_PATH"
@@ -63,7 +66,7 @@ while :
 		benchargs="--cache_size=$mb512 --value_size=100000 --num=4000"
 		op="bigval"
 		shift;;
-	val)
+	val|smval)
 		smallrun="yes"
 		benchargs="--value_size=100000 --num=10000"
 		op="val"
@@ -73,21 +76,56 @@ while :
 		test "$smallrun" == "yes" && {
 			benchargs="$benchargs --cache_size=$mb4"
 		}
-		time env "$bdblib_path" ./db_bench_bdb $benchargs > $fname
+		if test -e ./db_bench_bdb; then
+			time env "$bdblib_path" ./db_bench_bdb $benchargs > $fname
+		else
+			echo "Skipping, db_bench_bdb is not built."
+		fi
 		shift;;
 	ldb|leveldb|lvldb|lvl)
 		fname=$fdir/$op.$$.lvl
 		test "$smallrun" == "yes" && {
 			benchargs="$benchargs --cache_size=$mb4"
 		}
-		time ./db_bench_leveldb $benchargs > $fname
+		if test -e ./db_bench; then
+			time ./db_bench $benchargs > $fname
+		else
+			echo "Skipping, db_bench is not built."
+		fi
 		shift;;
-	wt)
+	ldbs|leveldbs|lvldbs|lvls)
+		fname=$fdir/$op.$$.lvlsymas
+		test "$smallrun" == "yes" && {
+			benchargs="$benchargs --cache_size=$mb4"
+		}
+		if test -e ./db_bench_leveldb; then
+			time ./db_bench_leveldb $benchargs > $fname
+		else
+			echo "Skipping, db_bench_leveldb is not built."
+		fi
+		shift;;
+	wt|wiredtiger)
 		fname=$fdir/$op.$$.wt
 		test "$smallrun" == "yes" && {
 			benchargs="$benchargs --cache_size=$mb4wt"
 		}
-		time env "$lib_path" ./db_bench_wiredtiger $benchargs > $fname
+		if test -e ./db_bench_wiredtiger; then
+			test_compress
+			time env "$lib_path" ./db_bench_wiredtiger $benchargs > $fname
+		else
+			echo "Skipping, db_bench_wiredtiger is not built."
+		fi
+		shift;;
+	wts|wtsymas)
+		fname=$fdir/$op.$$.wtsymas
+		test "$smallrun" == "yes" && {
+			benchargs="$benchargs --cache_size=$mb4wt"
+		}
+		if test -e ./db_bench_wtsymas; then
+			time env "$lib_path" ./db_bench_wtsymas $benchargs > $fname
+		else
+			echo "Skipping, db_bench_wtsymas is not built."
+		fi
 		shift;;
 	*)
 		break;;

@@ -72,7 +72,7 @@ while :
 		op="val"
 		shift;;
 	bdb)
-		fname=$fdir/$op.$$.bdb
+		fname=$fdir/$op.$$.bdbsymas
 		test "$smallrun" == "yes" && {
 			benchargs="$benchargs --cache_size=$mb4"
 		}

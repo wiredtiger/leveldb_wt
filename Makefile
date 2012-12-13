@@ -52,7 +52,7 @@ TESTS = \
 	write_batch_test
 
 PROGRAMS = db_bench $(TESTS)
-BENCHMARKS = db_bench_sqlite3 db_bench_tree_db db_bench_wiredtiger
+BENCHMARKS = db_bench_bdb db_bench_leveldb db_bench_sqlite3 db_bench_tree_db db_bench_wiredtiger
 
 LIBRARY = libleveldb.a
 MEMENVLIBRARY = libmemenv.a
@@ -107,6 +107,12 @@ db_bench_sqlite3: doc/bench/db_bench_sqlite3.o $(LIBOBJECTS) $(TESTUTIL)
 
 db_bench_tree_db: doc/bench/db_bench_tree_db.o $(LIBOBJECTS) $(TESTUTIL)
 	$(CXX) doc/bench/db_bench_tree_db.o $(LIBOBJECTS) $(TESTUTIL) -o $@ $(LDFLAGS) -lkyotocabinet
+
+db_bench_bdb: doc/bench/db_bench_bdb.o $(LIBOBJECTS) $(TESTUTIL)
+	$(CXX) doc/bench/db_bench_bdb.o $(LIBOBJECTS) $(TESTUTIL) -o $@ $(LDFLAGS) -ldb-5.3
+
+db_bench_leveldb: doc/bench/db_bench_leveldb.o $(LIBOBJECTS) $(TESTUTIL)
+	$(CXX) $(LDFLAGS) doc/bench/db_bench_leveldb.o $(LIBOBJECTS) $(TESTUTIL) -o $@
 
 db_bench_wiredtiger: doc/bench/db_bench_wiredtiger.o $(LIBOBJECTS) $(TESTUTIL)
 	$(CXX) doc/bench/db_bench_wiredtiger.o $(LIBOBJECTS) $(TESTUTIL) -o $@ $(LDFLAGS) -lwiredtiger

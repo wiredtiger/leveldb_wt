@@ -928,6 +928,10 @@ class Benchmark {
     for (int i = 0; i < reads_; i++) {
       char key[100];
       const int k = thread->rand.Next() % FLAGS_num;
+      if (k == 0) {
+        found++; /* Wired Tiger does not support 0 keys. */
+        continue;
+      }
       snprintf(key, sizeof(key), "%016d", k);
       cursor->set_key(cursor, key);
       if (cursor->search(cursor) == 0) {

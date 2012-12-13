@@ -38,13 +38,23 @@
 //      heapprofile -- Dump a heap profile (if supported by this port)
 static const char* FLAGS_benchmarks =
     "fillseq,"
+#ifdef SYMAS_CONFIG
+    "fillseqsync,"
+    "fillrandsync,"
+    "fillseqbatch,"
+    "fillrandbatch,"
+#else
     "fillsync,"
+#endif
     "fillrandom,"
     "overwrite,"
     "readrandom,"
+#ifndef SYMAS_CONFIG
     "readrandom,"  // Extra run to allow previous compactions to quiesce
+#endif
     "readseq,"
     "readreverse,"
+#ifndef SYMAS_CONFIG
     "compact,"
     "readrandom,"
     "readseq,"
@@ -54,6 +64,7 @@ static const char* FLAGS_benchmarks =
     "snappycomp,"
     "snappyuncomp,"
     "acquireload,"
+#endif
     ;
 
 // Number of key/values to place in database
@@ -97,6 +108,10 @@ static bool FLAGS_use_existing_db = false;
 
 // Use the db with the following name.
 static const char* FLAGS_db = NULL;
+
+#ifdef SYMAS_CONFIG
+static int *shuff = NULL;
+#endif
 
 namespace leveldb {
 
@@ -355,7 +370,9 @@ class Benchmark {
   void PrintEnvironment() {
     int wtmaj, wtmin, wtpatch;
     const char *wtver = wiredtiger_version(&wtmaj, &wtmin, &wtpatch);
-    fprintf(stderr, "WiredTiger:    version %s, lib ver %d, lib rev %d\n",
+    fprintf(stdout, "WiredTiger:    version %s, lib ver %d, lib rev %d patch %d\n",
+      wtver, wtmaj, wtmin, wtpatch);
+    fprintf(stderr, "WiredTiger:    version %s, lib ver %d, lib rev %d patch %d\n",
       wtver, wtmaj, wtmin, wtpatch);
 
 #if defined(__linux)
@@ -447,7 +464,15 @@ class Benchmark {
       if (name == Slice("fillseq")) {
         fresh_db = true;
         method = &Benchmark::WriteSeq;
+#ifdef SYMAS_CONFIG
+      } else if (name == Slice("fillrandbatch")) {
+        fresh_db = true;
+        entries_per_batch_ = 1000;
+        method = &Benchmark::WriteRandom;
+      } else if (name == Slice("fillseqbatch")) {
+#else
       } else if (name == Slice("fillbatch")) {
+#endif
         fresh_db = true;
         entries_per_batch_ = 1000;
         method = &Benchmark::WriteSeq;
@@ -457,11 +482,24 @@ class Benchmark {
       } else if (name == Slice("overwrite")) {
         fresh_db = false;
         method = &Benchmark::WriteRandom;
-      } else if (name == Slice("fillsync")) {
+#ifdef SYMAS_CONFIG
+      } else if (name == Slice("fillrandsync")) {
         fresh_db = true;
         num_ /= 1000;
-	sync_ = true;
+        if (num_ < 10)
+            num_ = 10;
+        sync_ = true;
         method = &Benchmark::WriteRandom;
+      } else if (name == Slice("fillseqsync")) {
+        num_ /= 1000;
+        if (num_ < 10)
+            num_ = 10;
+#else
+      } else if (name == Slice("fillsync")) {
+#endif
+        fresh_db = true;
+        sync_ = true;
+        method = &Benchmark::WriteSeq;
       } else if (name == Slice("fill100K")) {
         fresh_db = true;
         num_ /= 1000;
@@ -537,6 +575,16 @@ class Benchmark {
 
       if (method != NULL) {
         RunBenchmark(num_threads, name, method);
+#ifdef SYMAS_CONFIG
+	if (method == &Benchmark::WriteSeq ||
+	    method == &Benchmark::WriteRandom) {
+	    char cmd[200];
+	    std::string test_dir;
+	    Env::Default()->GetTestDirectory(&test_dir);
+	    sprintf(cmd, "du %s", test_dir.c_str());
+	    system(cmd);
+	}
+#endif
       }
     }
     if (conn_ != NULL) {
@@ -706,6 +754,7 @@ class Benchmark {
 
   /* Start Wired Tiger modified section. */
   void Open() {
+#define SMALL_CACHE 10*1024*1024
     std::stringstream config;
     config.str("");
     config << "create";
@@ -714,7 +763,9 @@ class Benchmark {
     /* TODO: Translate write_buffer_size - maybe it's chunk size?
     options.write_buffer_size = FLAGS_write_buffer_size;
     */
-    config << ",extensions=[snappy_compress.so]";
+#ifndef SYMAS_CONFIG
+    config << ",extensions=[libwiredtiger_snappy.so]";
+#endif
     //config << ",verbose=[lsm]";
     Env::Default()->CreateDir(FLAGS_db);
     wiredtiger_open(FLAGS_db, NULL, config.str().c_str(), &conn_);
@@ -731,15 +782,22 @@ class Benchmark {
     // Create tuning options and create the data file
     config.str("");
     config << "key_format=S,value_format=S";
-    config << ",internal_page_max=16kb";
-    config << ",leaf_page_max=16kb";
-    config << ",lsm_chunk_size=20MB";
+    if (FLAGS_cache_size < SMALL_CACHE) {
+        config << ",internal_page_max=4kb";
+        config << ",leaf_page_max=4kb";
+    } else {
+        config << ",internal_page_max=16kb";
+        config << ",leaf_page_max=16kb";
+        config << ",lsm_chunk_size=20MB";
+    }
     //config << ",lsm_bloom_newest=true";
     if (FLAGS_bloom_bits > 0)
         config << ",bloom_bit_count=" << FLAGS_bloom_bits;
     else if (FLAGS_bloom_bits == 0)
         config << ",lsm_bloom=false";
-    config << ",block_compressor=snappy_compress";
+#ifndef SYMAS_CONFIG
+    config << ",block_compressor=snappy";
+#endif
 
     int ret = session->create(session, uri_.c_str(), config.str().c_str());
     if (ret != 0) {
@@ -765,15 +823,19 @@ class Benchmark {
       thread->stats.AddMessage(msg);
     }
 
+#ifdef SYMAS_CONFIG
+    if (!seq)
+        thread->rand.Shuffle(shuff, num_);
+#endif
     RandomGenerator gen;
     int64_t bytes = 0;
     std::stringstream txn_config;
     txn_config.str("");
     txn_config << "isolation=snapshot";
     if (sync_)
-	    txn_config << ",sync=full";
+        txn_config << ",sync=full";
     else
-	    txn_config << ",sync=none";
+        txn_config << ",sync=none";
 
     WT_CURSOR *cursor;
     int ret = thread->session->open_cursor(thread->session, uri_.c_str(), NULL, "overwrite", &cursor);
@@ -783,7 +845,11 @@ class Benchmark {
     }
     for (int i = 0; i < num_; i += entries_per_batch_) {
       for (int j = 0; j < entries_per_batch_; j++) {
+#ifdef SYMAS_CONFIG
+        int k = seq ? i+j : shuff[i+j];
+#else
         int k = seq ? i+j : (thread->rand.Next() % FLAGS_num);
+#endif
         if (k == 0)
           k++; /* Wired Tiger does not support 0 keys. */
         char key[100];
@@ -865,7 +931,7 @@ class Benchmark {
       snprintf(key, sizeof(key), "%016d", k);
       cursor->set_key(cursor, key);
       if (cursor->search(cursor) == 0) {
-	found++;
+       found++;
       }
       thread->stats.FinishedSingleOp();
     }
@@ -1123,6 +1189,11 @@ int main(int argc, char** argv) {
       FLAGS_db = default_db_path.c_str();
   }
 
+#ifdef SYMAS_CONFIG
+  shuff = (int *)malloc(FLAGS_num * sizeof(int));
+  for (int i=0; i<FLAGS_num; i++)
+      shuff[i] = i;
+#endif
   leveldb::Benchmark benchmark;
   benchmark.Run();
   return 0;

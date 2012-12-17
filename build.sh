@@ -3,7 +3,8 @@
 # Assumes that a pre-built Wired Tiger library exists in ../wiredtiger.
 
 WT_PATH="../wiredtiger/build_posix"
-BDB_PATH="../../db-5.3.21/build_unix"
+BDB_PATH="../db-5.3.21/build_unix"
+BASHO_PATH="../basho.leveldb"
 SNAPPY_PATH="ext/compressors/snappy/.libs"
 
 make && make db_bench
@@ -16,6 +17,25 @@ if test -f doc/bench/db_bench_wiredtiger.cc; then
     rm -f doc/bench/db_bench_wiredtiger.o
     echo "Making standard WT benchmark"
     env LDFLAGS="-L$WT_PATH/.libs" CXXFLAGS="-I$WT_PATH" make db_bench_wiredtiger
+fi
+
+if test -e $BASHO_PATH; then
+    echo "Making Leveldb benchmark with Basho LevelDB library"
+    #
+    # We need to actually make the benchmarks in the Basho leveldb tree
+    # in order for it to properly pick up all the right Basho files.
+    #
+    (cd $BASHO_PATH; make && make db_bench && make db_bench_leveldb)
+    if test -e $BASHO_PATH/db_bench; then
+        mv $BASHO_PATH/db_bench ./db_bench_basho
+    else
+	echo "db_bench did not build in Basho tree."
+    fi
+    if test -e $BASHO_PATH/db_bench_leveldb; then
+        mv $BASHO_PATH/db_bench_leveldb ./db_bench_bashosymas
+    else
+	echo "db_bench_leveldb did not build in Basho tree."
+    fi
 fi
 
 if test -f doc/bench/db_bench_bdb.cc; then

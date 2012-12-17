@@ -6,7 +6,8 @@
 # but works if it is static.
 
 WT_PATH="../wiredtiger/build_posix"
-BDB_PATH="../../db-5.3.21/build_unix"
+BASHO_PATH="../basho.leveldb"
+BDB_PATH="../db-5.3.21/build_unix"
 SNAPPY_PATH="ext/compressors/snappy/.libs/"
 
 test_compress()
@@ -20,11 +21,15 @@ test_compress()
 }
 
 if [ `uname` == "Darwin" ]; then
-	lib_path="DYLD_LIBRARY_PATH=$WT_PATH/.libs:$WT_PATH/$SNAPPY_PATH"
+	basholib_path="DYLD_LIBRARY_PATH=$BASHO_PATH:"
 	bdblib_path="DYLD_LIBRARY_PATH=$BDB_PATH/.libs:"
+	levellib_path="DYLD_LIBRARY_PATH=.:"
+	wtlib_path="DYLD_LIBRARY_PATH=$WT_PATH/.libs:$WT_PATH/$SNAPPY_PATH"
 else
-	lib_path="LD_LIBRARY_PATH=$WT_PATH/.libs:$WT_PATH/$SNAPPY_PATH"
+	basholib_path="LD_LIBRARY_PATH=$BASHO_PATH:"
 	bdblib_path="LD_LIBRARY_PATH=$BDB_PATH/.libs:"
+	levellib_path="LD_LIBRARY_PATH=.:"
+	wtlib_path="LD_LIBRARY_PATH=$WT_PATH/.libs:$WT_PATH/$SNAPPY_PATH"
 fi
 
 #
@@ -39,7 +44,6 @@ fi
 # run.sh wt lvl bdb
 # run.sh small wt lvl bdb
 # run.sh bigval wt lvl
-# run.sh small wt lvl bdb big wt lvl bdb
 #
 mb128=134217728
 mb512=536870912
@@ -49,6 +53,7 @@ mb4wt="6537216"
 smallrun="no"
 op="big"
 fdir="./DATA"
+# The first arg may be the operation type.
 while :
 	do case "$1" in
 	small)
@@ -71,63 +76,78 @@ while :
 		benchargs="--value_size=100000 --num=10000"
 		op="val"
 		shift;;
-	bdb)
-		fname=$fdir/$op.$$.bdbsymas
+	*)
+		break;;
+	esac
+done
+
+# Now that we have the operation to run, do so on all remaining DB types.
+while :
+	do case "$1" in
+	basho)
+		fname=$fdir/$op.$$.basho
+		libp=$basholib_path
+		prog=./db_bench_basho
 		test "$smallrun" == "yes" && {
 			benchargs="$benchargs --cache_size=$mb4"
 		}
-		if test -e ./db_bench_bdb; then
-			time env "$bdblib_path" ./db_bench_bdb $benchargs > $fname
-		else
-			echo "Skipping, db_bench_bdb is not built."
-		fi
+		shift;;
+	bashos|bashosymas)
+		fname=$fdir/$op.$$.bosymas
+		libp=$basholib_path
+		prog=./db_bench_bashosymas
+		test "$smallrun" == "yes" && {
+			benchargs="$benchargs --cache_size=$mb4"
+		}
+		shift;;
+	bdb)
+		fname=$fdir/$op.$$.bdbsymas
+		libp=$bdblib_path
+		prog=./db_bench_bdb
+		test "$smallrun" == "yes" && {
+			benchargs="$benchargs --cache_size=$mb4"
+		}
 		shift;;
 	ldb|leveldb|lvldb|lvl)
 		fname=$fdir/$op.$$.lvl
+		libp=$levellib_path
+		prog=./db_bench
 		test "$smallrun" == "yes" && {
 			benchargs="$benchargs --cache_size=$mb4"
 		}
-		if test -e ./db_bench; then
-			time ./db_bench $benchargs > $fname
-		else
-			echo "Skipping, db_bench is not built."
-		fi
 		shift;;
 	ldbs|leveldbs|lvldbs|lvls)
 		fname=$fdir/$op.$$.lvlsymas
+		libp=$levellib_path
+		prog=./db_bench_leveldb
 		test "$smallrun" == "yes" && {
 			benchargs="$benchargs --cache_size=$mb4"
 		}
-		if test -e ./db_bench_leveldb; then
-			time ./db_bench_leveldb $benchargs > $fname
-		else
-			echo "Skipping, db_bench_leveldb is not built."
-		fi
 		shift;;
 	wt|wiredtiger)
 		fname=$fdir/$op.$$.wt
+		libp=$wtlib_path
+		prog=./db_bench_wiredtiger
 		test "$smallrun" == "yes" && {
 			benchargs="$benchargs --cache_size=$mb4wt"
 		}
-		if test -e ./db_bench_wiredtiger; then
-			test_compress
-			time env "$lib_path" ./db_bench_wiredtiger $benchargs > $fname
-		else
-			echo "Skipping, db_bench_wiredtiger is not built."
-		fi
+		test_compress
 		shift;;
 	wts|wtsymas)
 		fname=$fdir/$op.$$.wtsymas
+		libp=$wtlib_path
+		prog=./db_bench_wtsymas
 		test "$smallrun" == "yes" && {
 			benchargs="$benchargs --cache_size=$mb4wt"
 		}
-		if test -e ./db_bench_wtsymas; then
-			time env "$lib_path" ./db_bench_wtsymas $benchargs > $fname
-		else
-			echo "Skipping, db_bench_wtsymas is not built."
-		fi
 		shift;;
 	*)
 		break;;
 	esac
+	# If we have a command to execute do so.
+	if test -e $prog; then
+		time env "$libp" $prog $benchargs > $fname
+	else
+		echo "Skipping, $prog is not built."
+	fi
 done

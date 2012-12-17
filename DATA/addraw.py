@@ -20,13 +20,9 @@ def parse_raw(rawfile):
     return rawdata
 
 
-# Take the data from Symas which only lists ops/sec or
-# entries/sec and append micros/op for comparison to db_bench output.
 def add_newdata(infile, rawdicts):
     inf = open(infile, 'r')
     sec = 1000000
-    # BDB is the last item in every list.  Append our lines after that one.
-    conv1 = 'BerkeleyDB'
     op = ""
     for line in inf:
         # First find the operation, then append our lines after the op line.

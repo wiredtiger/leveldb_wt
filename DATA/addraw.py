@@ -39,10 +39,11 @@ def add_newdata(infile, rawdicts):
                 # line to write after the op line.  The line looks like:
                 # name value ops/sec value micros/op
                 raw = rawdicts[rawfile]
-                rawval = raw[op]
-                opsval = format(round(float(sec) / float(rawval)), '.0f')
-                newline = rawfile + ' ' + opsval + ' ops/sec\t' + rawval + ' micros/op'
-                print newline
+                if op in raw:
+                    rawval = raw[op]
+                    opsval = format(round(float(sec) / float(rawval)), '.0f')
+                    newline = rawfile + ' ' + opsval + ' ops/sec\t' + rawval + ' micros/op'
+                    print newline
             op = ""
     inf.close()
 

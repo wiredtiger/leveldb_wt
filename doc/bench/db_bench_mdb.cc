@@ -390,23 +390,23 @@ class Benchmark {
         Write(flags, RANDOM, EXISTING, num_, FLAGS_value_size, FLAGS_batch);
 #ifdef SYMAS_CONFIG
       } else if (name == Slice("fillrandsync")) {
+#else
+      } else if (name == Slice("fillsync")) {
+#endif
 	writer = true;
         flags = SYNC;
 	num_ /= 1000;
 	if (num_ < 10)
 		num_=10;
         Write(flags, RANDOM, FRESH, num_, FLAGS_value_size, 1);
+#ifdef SYMAS_CONFIG
       } else if (name == Slice("fillseqsync")) {
-#else
-      } else if (name == Slice("fillsync")) {
-#endif
 	num_ /= 1000;
 	if (num_ < 10)
 		num_=10;
 	writer = true;
         flags = SYNC;
         Write(flags, SEQUENTIAL, FRESH, num_, FLAGS_value_size, 1);
-#ifdef SYMAS_CONFIG
       } else if (name == Slice("fillrand100K")) {
 #else
       } else if (name == Slice("fill100K")) {

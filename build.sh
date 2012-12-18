@@ -5,6 +5,7 @@
 WT_PATH="../wiredtiger/build_posix"
 BDB_PATH="../db-5.3.21/build_unix"
 BASHO_PATH="../basho.leveldb"
+MDB_PATH="../mdb/libraries/liblmdb"
 SNAPPY_PATH="ext/compressors/snappy/.libs"
 
 make && make db_bench
@@ -46,4 +47,15 @@ fi
 if test -f doc/bench/db_bench_leveldb.cc; then
     echo "Making SYMAS configured LevelDB benchmark"
     make db_bench_leveldb
+fi
+
+if test -e $MDB_PATH; then
+    (cd $MDB_PATH; make)
+    echo "Making SYMAS configured MDB benchmark into db_bench_mdbsymas"
+    rm -f doc/bench/db_bench_mdb.o
+    env LDFLAGS="-L$MDB_PATH" CXXFLAGS="-I$MDB_PATH -DSYMAS_CONFIG" make db_bench_mdb
+    mv db_bench_mdb db_bench_mdbsymas
+    rm -f doc/bench/db_bench_mdb.o
+    echo "Making standard MDB benchmark"
+    env LDFLAGS="-L$MDB_PATH" CXXFLAGS="-I$MDB_PATH" make db_bench_mdb
 fi

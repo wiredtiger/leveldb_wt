@@ -52,7 +52,8 @@ TESTS = \
 	write_batch_test
 
 PROGRAMS = db_bench $(TESTS)
-BENCHMARKS = db_bench_bdb db_bench_leveldb db_bench_sqlite3 db_bench_tree_db db_bench_wiredtiger
+BENCHMARKS = db_bench_bdb db_bench_leveldb db_bench_mdb db_bench_sqlite3 \
+	     db_bench_tree_db db_bench_wiredtiger
 
 LIBRARY = libleveldb.a
 MEMENVLIBRARY = libmemenv.a
@@ -101,6 +102,9 @@ $(LIBRARY): $(LIBOBJECTS)
 
 db_bench: db/db_bench.o $(LIBOBJECTS) $(TESTUTIL)
 	$(CXX) db/db_bench.o $(LIBOBJECTS) $(TESTUTIL) -o $@  $(LDFLAGS)
+
+db_bench_mdb: doc/bench/db_bench_mdb.o $(LIBOBJECTS) $(TESTUTIL)
+	$(CXX) doc/bench/db_bench_mdb.o $(LIBOBJECTS) $(TESTUTIL) -o $@ $(LDFLAGS) -llmdb
 
 db_bench_sqlite3: doc/bench/db_bench_sqlite3.o $(LIBOBJECTS) $(TESTUTIL)
 	$(CXX) doc/bench/db_bench_sqlite3.o $(LIBOBJECTS) $(TESTUTIL) -o $@ $(LDFLAGS) -lsqlite3

@@ -5,10 +5,11 @@
 # Assumes that the Wired Tiger build is shared, not static.
 # but works if it is static.
 
-WT_PATH="../wiredtiger/build_posix"
 BASHO_PATH="../basho.leveldb"
 BDB_PATH="../db-5.3.21/build_unix"
+MDB_PATH="../mdb/libraries/liblmdb"
 SNAPPY_PATH="ext/compressors/snappy/.libs/"
+WT_PATH="../wiredtiger/build_posix"
 
 test_compress()
 {
@@ -24,11 +25,13 @@ if [ `uname` == "Darwin" ]; then
 	basholib_path="DYLD_LIBRARY_PATH=$BASHO_PATH:"
 	bdblib_path="DYLD_LIBRARY_PATH=$BDB_PATH/.libs:"
 	levellib_path="DYLD_LIBRARY_PATH=.:"
+	mdblib_path="DYLD_LIBRARY_PATH=$MDB_PATH:"
 	wtlib_path="DYLD_LIBRARY_PATH=$WT_PATH/.libs:$WT_PATH/$SNAPPY_PATH"
 else
 	basholib_path="LD_LIBRARY_PATH=$BASHO_PATH:"
 	bdblib_path="LD_LIBRARY_PATH=$BDB_PATH/.libs:"
 	levellib_path="LD_LIBRARY_PATH=.:"
+	mdblib_path="LD_LIBRARY_PATH=$MDB_PATH:"
 	wtlib_path="LD_LIBRARY_PATH=$WT_PATH/.libs:$WT_PATH/$SNAPPY_PATH"
 fi
 
@@ -48,6 +51,7 @@ fi
 mb128=134217728
 mb512=536870912
 benchargs="--cache_size=$mb128"
+mdb_benchargs=""
 mb4="4194304"
 mb4wt="6537216"
 smallrun="no"
@@ -123,6 +127,18 @@ while :
 		test "$smallrun" == "yes" && {
 			benchargs="$benchargs --cache_size=$mb4"
 		}
+		shift;;
+	mdb)
+		fname=$fdir/$op.$$.mdb
+		libp=$mdblib_path
+		prog=./db_bench_mdb
+		benchargs="$mdbbenchargs"
+		shift;;
+	mdbs|mdbsymas)
+		fname=$fdir/$op.$$.mdbsymas
+		libp=$mdblib_path
+		prog=./db_bench_mdbsymas
+		benchargs="$mdbbenchargs"
 		shift;;
 	wt|wiredtiger)
 		fname=$fdir/$op.$$.wt

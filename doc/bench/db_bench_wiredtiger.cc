@@ -483,23 +483,23 @@ class Benchmark {
         fresh_db = false;
         method = &Benchmark::WriteRandom;
 #ifdef SYMAS_CONFIG
-      } else if (name == Slice("fillrandsync")) {
-        fresh_db = true;
-        num_ /= 1000;
-        if (num_ < 10)
-            num_ = 10;
-        sync_ = true;
-        method = &Benchmark::WriteRandom;
       } else if (name == Slice("fillseqsync")) {
         num_ /= 1000;
         if (num_ < 10)
             num_ = 10;
-#else
-      } else if (name == Slice("fillsync")) {
-#endif
         fresh_db = true;
         sync_ = true;
         method = &Benchmark::WriteSeq;
+      } else if (name == Slice("fillrandsync")) {
+#else
+      } else if (name == Slice("fillsync")) {
+#endif
+        num_ /= 1000;
+        if (num_ < 10)
+            num_ = 10;
+        fresh_db = true;
+        sync_ = true;
+        method = &Benchmark::WriteRandom;
       } else if (name == Slice("fill100K")) {
         fresh_db = true;
         num_ /= 1000;

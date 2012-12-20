@@ -50,35 +50,39 @@ fi
 #
 mb128=134217728
 mb512=536870912
-benchargs="--cache_size=$mb128"
+origbenchargs="--cache_size=$mb128"
 mdb_benchargs=""
 mb4="4194304"
 mb4wt="6537216"
 smallrun="no"
 op="big"
 fdir="./DATA"
+count=3
 # The first arg may be the operation type.
 while :
 	do case "$1" in
 	small)
 		smallrun="yes"
-		benchargs=""
+		origbenchargs=""
 		op="small"
 		shift;;
 	big|large)
 		smallrun="no"
-		benchargs="--cache_size=$mb128"
+		origbenchargs="--cache_size=$mb128"
 		op="big"
 		shift;;
 	bigval)
 		smallrun="no"
-		benchargs="--cache_size=$mb512 --value_size=100000 --num=4000"
+		origbenchargs="--cache_size=$mb512 --value_size=100000 --num=4000"
 		op="bigval"
 		shift;;
 	val|smval)
 		smallrun="yes"
-		benchargs="--value_size=100000 --num=10000"
+		origbenchargs="--value_size=100000 --num=10000"
 		op="val"
+		shift;;
+	1|2|3|4|5|6|7|8|9)
+		count=$1
 		shift;;
 	*)
 		break;;
@@ -86,75 +90,106 @@ while :
 done
 
 # Now that we have the operation to run, do so on all remaining DB types.
+benchargs=$origbenchargs
 while :
 	do case "$1" in
 	basho)
-		fname=$fdir/$op.$$.basho
+		fname=basho
 		libp=$basholib_path
 		prog=./db_bench_basho
 		test "$smallrun" == "yes" && {
-			benchargs="$benchargs --cache_size=$mb4"
+			benchargs="$origbenchargs --cache_size=$mb4"
 		}
 		shift;;
 	bashos|bashosymas)
-		fname=$fdir/$op.$$.bosymas
+		fname=bosymas
 		libp=$basholib_path
 		prog=./db_bench_bashosymas
 		test "$smallrun" == "yes" && {
-			benchargs="$benchargs --cache_size=$mb4"
+			benchargs="$origbenchargs --cache_size=$mb4"
 		}
 		shift;;
 	bdb)
-		fname=$fdir/$op.$$.bdbsymas
+		fname=bdbsymas
 		libp=$bdblib_path
 		prog=./db_bench_bdb
 		test "$smallrun" == "yes" && {
-			benchargs="$benchargs --cache_size=$mb4"
+			benchargs="$origbenchargs --cache_size=$mb4"
 		}
 		shift;;
 	ldb|leveldb|lvldb|lvl)
-		fname=$fdir/$op.$$.lvl
+		fname=lvl
 		libp=$levellib_path
 		prog=./db_bench
 		test "$smallrun" == "yes" && {
-			benchargs="$benchargs --cache_size=$mb4"
+			benchargs="$origbenchargs --cache_size=$mb4"
 		}
 		shift;;
 	ldbs|leveldbs|lvldbs|lvls)
-		fname=$fdir/$op.$$.lvlsymas
+		fname=lvlsymas
 		libp=$levellib_path
 		prog=./db_bench_leveldb
 		test "$smallrun" == "yes" && {
-			benchargs="$benchargs --cache_size=$mb4"
+			benchargs="$origbenchargs --cache_size=$mb4"
 		}
 		shift;;
 	mdb)
-		fname=$fdir/$op.$$.mdb
+		fname=mdb
 		libp=$mdblib_path
 		prog=./db_bench_mdb
 		benchargs="$mdbbenchargs"
 		shift;;
 	mdbs|mdbsymas)
-		fname=$fdir/$op.$$.mdbsymas
+		fname=mdbsymas
 		libp=$mdblib_path
 		prog=./db_bench_mdbsymas
 		benchargs="$mdbbenchargs"
 		shift;;
-	wt|wiredtiger)
-		fname=$fdir/$op.$$.wt
+	wt|wiredtiger|wtl|wtlsm)
+		fname=wtlsm
 		libp=$wtlib_path
 		prog=./db_bench_wiredtiger
+		test "$smallrun" == "yes" && {
+			benchargs="$origbenchargs --cache_size=$mb4wt"
+		}
+		test_compress
+		shift;;
+	wtp|wtpfx|wtlsmp)
+		fname=wtlsmpfx
+		libp=$wtlib_path
+		prog=./db_bench_wiredtiger
+		benchargs="$origbenchargs --nopfx"
+		test "$smallrun" == "yes" && {
+			benchargs="$benchargs --cache_size=$mb4wt"
+		}
+		test_compress
+		shift;;
+	wtb|wiredtigerb)
+		fname=wtbtree
+		libp=$wtlib_path
+		prog=./db_bench_wiredtiger
+		benchargs="$origbenchargs --use_lsm=0"
+		test "$smallrun" == "yes" && {
+			benchargs="$benchargs --cache_size=$mb4wt"
+		}
+		test_compress
+		shift;;
+	wtbp|wtbpfx)
+		fname=wtbtreepfx
+		libp=$wtlib_path
+		prog=./db_bench_wiredtiger
+		benchargs="$origbenchargs --use_lsm=0 --nopfx"
 		test "$smallrun" == "yes" && {
 			benchargs="$benchargs --cache_size=$mb4wt"
 		}
 		test_compress
 		shift;;
 	wts|wtsymas)
-		fname=$fdir/$op.$$.wtsymas
+		fname=wtsymas
 		libp=$wtlib_path
 		prog=./db_bench_wtsymas
 		test "$smallrun" == "yes" && {
-			benchargs="$benchargs --cache_size=$mb4wt"
+			benchargs="$origbenchargs --cache_size=$mb4wt"
 		}
 		shift;;
 	*)
@@ -162,7 +197,13 @@ while :
 	esac
 	# If we have a command to execute do so.
 	if test -e $prog; then
-		time env "$libp" $prog $benchargs > $fname
+		i=0
+		while test "$i" != "$count" ; do
+			name=$fdir/$op.$$.$i.$fname
+			echo "Benchmark output in $name"
+			time env "$libp" $prog $benchargs > $name
+			i=`expr $i + 1`
+		done
 	else
 		echo "Skipping, $prog is not built."
 	fi

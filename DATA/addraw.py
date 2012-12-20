@@ -6,6 +6,7 @@ It will add each item from each runfile to the appropriate category
 and write the result to stdout.
 """
 
+import re
 import sys
 
 def parse_raw(rawfile):
@@ -24,15 +25,15 @@ def add_newdata(infile, rawdicts):
     inf = open(infile, 'r')
     sec = 1000000
     op = ""
+    r = re.compile(r'\((.+)\)')
     for line in inf:
         # First find the operation, then append our lines after the op line.
         # Write the line no matter what.
         print line,
         if op == "":
-            i = line.find('(')
-            if i != -1:
-                j = line.find(')')
-                op = line[i+1:j]
+            opmatch = r.search(line)
+            if opmatch:
+                op = opmatch.group(1)
         if op != "":
             for rawfile in rawdicts:
                 # We just printed the op line.  Now construct our new

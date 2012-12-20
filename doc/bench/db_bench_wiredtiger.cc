@@ -55,15 +55,17 @@ static const char* FLAGS_benchmarks =
     "readseq,"
     "readreverse,"
 #ifndef SYMAS_CONFIG
-    "compact,"
     "readrandom,"
     "readseq,"
     "readreverse,"
     "fill100K,"
+#if 0
+    "compact,"
     "crc32c,"
     "snappycomp,"
     "snappyuncomp,"
     "acquireload,"
+#endif
 #endif
     ;
 
@@ -100,6 +102,11 @@ static int FLAGS_open_files = 0;
 // Bloom filter bits per key.
 // Negative means use default settings.
 static int FLAGS_bloom_bits = -1;
+
+// Use LSM tree.  Changed by --use_lsm=0
+static bool FLAGS_use_lsm = true;
+// Turn off prefix compression.
+static bool FLAGS_nopfx = false;
 
 // If true, do not destroy the existing database.  If you set this
 // flag and also specify a benchmark that wants a fresh database, that
@@ -450,7 +457,7 @@ class Benchmark {
         benchmarks = sep + 1;
       }
 
-      // Reset parameters that may be overriddden bwlow
+      // Reset parameters that may be overriddden below
       num_ = FLAGS_num;
       reads_ = (FLAGS_reads < 0 ? FLAGS_num : FLAGS_reads);
       value_size_ = FLAGS_value_size;
@@ -776,7 +783,8 @@ class Benchmark {
     assert(session != NULL);
 
     char uri[100];
-    snprintf(uri, sizeof(uri), "lsm:dbbench_wt-%d", ++db_num_);
+    snprintf(uri, sizeof(uri), "%s:dbbench_wt-%d", 
+		    FLAGS_use_lsm ? "lsm" : "table", ++db_num_);
     uri_ = uri;
 
     // Create tuning options and create the data file
@@ -788,8 +796,11 @@ class Benchmark {
     } else {
         config << ",internal_page_max=16kb";
         config << ",leaf_page_max=16kb";
-        config << ",lsm_chunk_size=20MB";
+	if (FLAGS_use_lsm)
+		config << ",lsm_chunk_size=20MB";
     }
+    if (FLAGS_nopfx)
+       config << ",prefix_compression=false";
     //config << ",lsm_bloom_newest=true";
     if (FLAGS_bloom_bits > 0)
         config << ",bloom_bit_count=" << FLAGS_bloom_bits;
@@ -799,6 +810,7 @@ class Benchmark {
     config << ",block_compressor=snappy";
 #endif
 
+    fprintf(stderr, "Creating %s with config %s\n",uri_.c_str(), config.str().c_str());
     int ret = session->create(session, uri_.c_str(), config.str().c_str());
     if (ret != 0) {
       fprintf(stderr, "create error: %s\n", wiredtiger_strerror(ret));
@@ -1159,6 +1171,11 @@ int main(int argc, char** argv) {
     } else if (sscanf(argv[i], "--histogram=%d%c", &n, &junk) == 1 &&
                (n == 0 || n == 1)) {
       FLAGS_histogram = n;
+    } else if (sscanf(argv[i], "--use_lsm=%d%c", &n, &junk) == 1 &&
+               (n == 0 || n == 1)) {
+      FLAGS_use_lsm = n;
+    } else if (strncmp(argv[i], "--nopfx", 7) == 0) {
+      FLAGS_nopfx = true;
     } else if (sscanf(argv[i], "--use_existing_db=%d%c", &n, &junk) == 1 &&
                (n == 0 || n == 1)) {
       FLAGS_use_existing_db = n;

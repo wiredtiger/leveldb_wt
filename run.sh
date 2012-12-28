@@ -90,8 +90,8 @@ while :
 done
 
 # Now that we have the operation to run, do so on all remaining DB types.
-benchargs=$origbenchargs
 while :
+	benchargs=$origbenchargs
 	do case "$1" in
 	basho)
 		fname=basho
@@ -201,6 +201,7 @@ while :
 		while test "$i" != "$count" ; do
 			name=$fdir/$op.$$.$i.$fname
 			echo "Benchmark output in $name"
+			echo "env $libp $prog $benchargs"
 			time env "$libp" $prog $benchargs > $name
 			i=`expr $i + 1`
 		done

@@ -80,19 +80,20 @@ def gen_gnuplot(opfx, dname, op, glist):
     fd.write('set output "' + jname + '"\n')
     fd.write('set border 3 front linetype -1 linewidth 1.000\n')
     fd.write('set style data histogram\n')
+    fd.write('set format y "%9.0f"\n')
     fd.write('set xlabel "DB Source"\n')
     fd.write('set ylabel "Ops/sec"\n')
     fd.write('set grid\n')
-    fd.write('set boxwidth 0.95 relative\n')
+    fd.write('set boxwidth 0.5 relative\n')
     fd.write('set style fill transparent solid 0.5 noborder\n')
-    fd.write('plot "' + dname + '" u 2:xticlabels(1) w boxes lc rgb"green" notitle\n')
+    fd.write('plot "' + dname + '" u ($0):2:($0):xticlabels(1) w boxes lc variable notitle\n')
     fd.close
     glist.append(fname)
 
 def generate_data(rawdicts, rawnames, opfx):
     opsdict = getavg(rawdicts, rawnames)
     gnulist = []
-    for ftype in opsdict:
+    for ftype in sorted(opsdict.keys()):
         ops = opsdict[ftype]
         for op in ops:
             fname = opfx + '.' + op + '.res'
@@ -120,6 +121,13 @@ def main():
         sys.exit(1)
 
     outfilepfx = sys.argv[1]
+    #
+    # If the output file prefix exists as a file, it is likely the user
+    # forgot and it really is the first datafile name instead.
+    #
+    if os.path.exists(outfilepfx):
+        print 'output file prefix already exists as a file'
+        sys.exit(1)
     d = 2
     rawdicts = {}
     rawnames = {}

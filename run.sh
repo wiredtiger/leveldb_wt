@@ -58,9 +58,16 @@ smallrun="no"
 op="big"
 fdir="./DATA"
 count=3
+fastdir="/mnt/fast/leveldbtest"
+tmpdir="TEST_TMPDIR="
 # The first arg may be the operation type.
 while :
 	do case "$1" in
+	fast)
+		if [ -e $fastdir ]; then
+	 		tmpdir="TEST_TMPDIR=$fastdir"
+		fi
+		shift;;
 	small)
 		smallrun="yes"
 		origbenchargs=""
@@ -94,7 +101,7 @@ while :
 	benchargs=$origbenchargs
 	do case "$1" in
 	basho)
-		fname=basho
+		fname=Basho
 		libp=$basholib_path
 		prog=./db_bench_basho
 		test "$smallrun" == "yes" && {
@@ -102,7 +109,7 @@ while :
 		}
 		shift;;
 	bashos|bashosymas)
-		fname=bosymas
+		fname=Basho-symas
 		libp=$basholib_path
 		prog=./db_bench_bashosymas
 		test "$smallrun" == "yes" && {
@@ -110,7 +117,7 @@ while :
 		}
 		shift;;
 	bdb)
-		fname=bdbsymas
+		fname=BDB-symas
 		libp=$bdblib_path
 		prog=./db_bench_bdb
 		test "$smallrun" == "yes" && {
@@ -118,7 +125,7 @@ while :
 		}
 		shift;;
 	ldb|leveldb|lvldb|lvl)
-		fname=lvl
+		fname=LevelDB
 		libp=$levellib_path
 		prog=./db_bench
 		test "$smallrun" == "yes" && {
@@ -126,7 +133,7 @@ while :
 		}
 		shift;;
 	ldbs|leveldbs|lvldbs|lvls)
-		fname=lvlsymas
+		fname=LevelDB-symas
 		libp=$levellib_path
 		prog=./db_bench_leveldb
 		test "$smallrun" == "yes" && {
@@ -134,19 +141,19 @@ while :
 		}
 		shift;;
 	mdb)
-		fname=mdb
+		fname=MDB
 		libp=$mdblib_path
 		prog=./db_bench_mdb
 		benchargs="$mdbbenchargs"
 		shift;;
 	mdbs|mdbsymas)
-		fname=mdbsymas
+		fname=MDB-symas
 		libp=$mdblib_path
 		prog=./db_bench_mdbsymas
 		benchargs="$mdbbenchargs"
 		shift;;
 	wt|wiredtiger|wtl|wtlsm)
-		fname=wtlsm
+		fname=WTlsm
 		libp=$wtlib_path
 		prog=./db_bench_wiredtiger
 		test "$smallrun" == "yes" && {
@@ -155,7 +162,7 @@ while :
 		test_compress
 		shift;;
 	wtp|wtpfx|wtlsmp)
-		fname=wtlsmpfx
+		fname=WTlsmpfx
 		libp=$wtlib_path
 		prog=./db_bench_wiredtiger
 		benchargs="$origbenchargs --nopfx"
@@ -165,7 +172,7 @@ while :
 		test_compress
 		shift;;
 	wtb|wiredtigerb)
-		fname=wtbtree
+		fname=WTbtree
 		libp=$wtlib_path
 		prog=./db_bench_wiredtiger
 		benchargs="$origbenchargs --use_lsm=0"
@@ -175,7 +182,7 @@ while :
 		test_compress
 		shift;;
 	wtbp|wtbpfx)
-		fname=wtbtreepfx
+		fname=WTbtreepfx
 		libp=$wtlib_path
 		prog=./db_bench_wiredtiger
 		benchargs="$origbenchargs --use_lsm=0 --nopfx"
@@ -185,7 +192,7 @@ while :
 		test_compress
 		shift;;
 	wts|wtsymas)
-		fname=wtsymas
+		fname=WTlsm-symas
 		libp=$wtlib_path
 		prog=./db_bench_wtsymas
 		test "$smallrun" == "yes" && {
@@ -201,8 +208,8 @@ while :
 		while test "$i" != "$count" ; do
 			name=$fdir/$op.$$.$i.$fname
 			echo "Benchmark output in $name"
-			echo "env $libp $prog $benchargs"
-			time env "$libp" $prog $benchargs > $name
+			echo "env $libp $tmpdir $prog $benchargs"
+			time env "$libp" "$tmpdir" $prog $benchargs > $name
 			i=`expr $i + 1`
 		done
 	else

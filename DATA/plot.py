@@ -83,6 +83,7 @@ def gen_gnuplot(opfx, dname, op, glist):
     fd.write('set format y "%9.0f"\n')
     fd.write('set xlabel "DB Source"\n')
     fd.write('set ylabel "Ops/sec"\n')
+    fd.write('set yrange [0:]\n')
     fd.write('set grid\n')
     fd.write('set boxwidth 0.5 relative\n')
     fd.write('set style fill transparent solid 0.5 noborder\n')

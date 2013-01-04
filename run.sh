@@ -44,9 +44,9 @@ fi
 #
 # It runs the op that is in force at the time it finds the db to run.
 # So, an example would be:
-# run.sh wt lvl bdb
-# run.sh small wt lvl bdb
-# run.sh bigval wt lvl
+# run.sh 5 fast wt lvl bdb
+# run.sh 2 small wt lvl mdb
+# run.sh bigval wt wtbtree lvl
 #
 mb128=134217728
 mb512=536870912
@@ -60,7 +60,8 @@ fdir="./DATA"
 count=3
 fastdir="/mnt/fast/leveldbtest"
 tmpdir="TEST_TMPDIR="
-# The first arg may be the operation type.
+# The first set of args control the script or the program.  The remaining
+# args are the database types to run.
 while :
 	do case "$1" in
 	fast)
@@ -117,9 +118,17 @@ while :
 		}
 		shift;;
 	bdb)
-		fname=BDB-symas
+		fname=BDB
 		libp=$bdblib_path
 		prog=./db_bench_bdb
+		test "$smallrun" == "yes" && {
+			benchargs="$origbenchargs --cache_size=$mb4"
+		}
+		shift;;
+	bdbs|bdbsymas)
+		fname=BDB-symas
+		libp=$bdblib_path
+		prog=./db_bench_bdbsymas
 		test "$smallrun" == "yes" && {
 			benchargs="$origbenchargs --cache_size=$mb4"
 		}

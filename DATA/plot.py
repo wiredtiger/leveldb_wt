@@ -69,12 +69,15 @@ def getavg(rawdicts, rawnames):
     return newdict
 
 #
-# Generate the gnuplot file.
+# Generate the gnuplot file.  We don't use gnuplot.py here because that
+# has not been updated since 2008!  Some of the things we want to do need
+# a later version of gnuplot (this was first generated to work with gnuplot 4.6
+# and is known to fail with gnuplot 4.2).
 #
 def gen_gnuplot(opfx, dname, op, glist):
     fname = opfx + '.' + op + '.gnu'
     fd = open(fname, 'w+')
-    fd.write('set title "LevelDB ' + op + ' Throughput"\n')
+    fd.write('set title "LevelDB benchmark - ' + op + '"\n')
     fd.write('set terminal jpeg medium\n')
     jname = opfx + '.' + op + '.jpg'
     fd.write('set output "' + jname + '"\n')
@@ -82,7 +85,7 @@ def gen_gnuplot(opfx, dname, op, glist):
     fd.write('set style data histogram\n')
     fd.write('set format y "%9.0f"\n')
     fd.write('set xlabel "DB Source"\n')
-    fd.write('set ylabel "Ops/sec"\n')
+    fd.write('set ylabel "Operations/sec"\n')
     fd.write('set yrange [0:]\n')
     fd.write('set grid\n')
     fd.write('set boxwidth 0.5 relative\n')

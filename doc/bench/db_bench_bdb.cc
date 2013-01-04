@@ -27,19 +27,29 @@
 //   readrand100K  -- read N/1000 100K values in sequential order in async mode
 //   readrandom    -- read N times in random order
 static const char* FLAGS_benchmarks =
+    "fillseq,"
+#ifdef SYMAS_CONFIG
     "fillseqsync,"
     "fillrandsync,"
-    "fillseq,"
     "fillseqbatch,"
-    "fillrandom,"
     "fillrandbatch,"
-    "overwrite,"
-#if 0
-    "overwritebatch,"
+#else
+    "fillsync,"
 #endif
+    "fillrandom,"
+    "overwrite,"
+    "readrandom,"
+#ifndef SYMAS_CONFIG
+    "readrandom,"
+#endif
+    "readseq,"
+    "readreverse,"
+#ifndef SYMAS_CONFIG
     "readrandom,"
     "readseq,"
     "readreverse,"
+    "fill100K,"
+#endif
 #if 0
     "fillrand100K,"
     "fillseq100K,"
@@ -81,7 +91,9 @@ static bool FLAGS_transaction = true;
 // Use the db with the following name.
 static const char* FLAGS_db = NULL;
 
+#ifdef SYMAS_CONFIG
 static int *shuff = NULL;
+#endif
 
 namespace leveldb {
 
@@ -365,23 +377,29 @@ class Benchmark {
       } else if (name == Slice("overwritebatch")) {
 	writer = true;
         Write(flags, RANDOM, EXISTING, num_, FLAGS_value_size, 1000);
+#ifdef SYMAS_CONFIG
       } else if (name == Slice("fillrandsync")) {
+#else
+      } else if (name == Slice("fillsync")) {
+#endif
 	writer = true;
         flags = SYNC;
-#if 1
-		num_ /= 1000;
-		if (num_<10) num_=10;
-#endif
+	num_ /= 1000;
+	if (num_ < 10)
+		num_=10;
         Write(flags, RANDOM, FRESH, num_, FLAGS_value_size, 1);
+#ifdef SYMAS_CONFIG
       } else if (name == Slice("fillseqsync")) {
 	writer = true;
         flags = SYNC;
-#if 1
-		num_ /= 1000;
-		if (num_<10) num_=10;
-#endif
+	num_ /= 1000;
+	if (num_ < 10)
+		num_=10;
         Write(flags, SEQUENTIAL, FRESH, num_, FLAGS_value_size, 1);
       } else if (name == Slice("fillrand100K")) {
+#else
+      } else if (name == Slice("fill100K")) {
+#endif
 	writer = true;
         Write(flags, RANDOM, FRESH, num_ / 1000, 100 * 1000, 1);
       } else if (name == Slice("fillseq100K")) {
@@ -411,6 +429,7 @@ class Benchmark {
       }
       if (known) {
         Stop(name);
+#ifdef SYMAS_CONFIG
 	if (writer) {
 	  char cmd[200];
 	  std::string test_dir;
@@ -418,6 +437,7 @@ class Benchmark {
 	  sprintf(cmd, "du %s", test_dir.c_str());
 	  system(cmd);
 	}
+#endif
       }
     }
   }
@@ -481,9 +501,10 @@ class Benchmark {
     } else {
 	db_->txn_checkpoint(db_,0,0,DB_FORCE);
     }
-
+#ifdef SYMAS_CONFIG
     if (order == RANDOM)
 	  rand_.Shuffle(shuff, num_entries);
+#endif
 
     Start();  // Do not count time taken to destroy/open
 
@@ -496,6 +517,8 @@ class Benchmark {
 	DBT mkey, mval;
 	DB_TXN *txn;
 	char key[100];
+	memset(&mkey, 0, sizeof(mkey));
+	memset(&mval, 0, sizeof(mval));
 	mkey.data = key;
 	mval.size = value_size;
 	mkey.flags = 0; mval.flags = 0;
@@ -506,7 +529,11 @@ class Benchmark {
 	  
 	  for (int j=0; j < entries_per_batch; j++) {
 
+#ifdef SYMAS_CONFIG
       const int k = (order == SEQUENTIAL) ? i+j : shuff[i+j];
+#else
+      int k = (order == SEQUENTIAL) ? i+j : (rand_.Next() % FLAGS_num);
+#endif
 	  int rc, flag = 0;
 	  mkey.size = snprintf(key, sizeof(key), "%016d", k);
       bytes_ += value_size + mkey.size;
@@ -612,9 +639,11 @@ int main(int argc, char** argv) {
       FLAGS_db = default_db_path.c_str();
   }
 
+#ifdef SYMAS_CONFIG
   shuff = (int *)malloc(FLAGS_num * sizeof(int));
   for (int i=0; i<FLAGS_num; i++)
    shuff[i] = i;
+#endif
   leveldb::Benchmark benchmark;
   benchmark.Run();
   return 0;

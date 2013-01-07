@@ -105,8 +105,6 @@ static int FLAGS_bloom_bits = -1;
 
 // Use LSM tree.  Changed by --use_lsm=0
 static bool FLAGS_use_lsm = true;
-// Turn off prefix compression.
-static bool FLAGS_nopfx = false;
 
 // If true, do not destroy the existing database.  If you set this
 // flag and also specify a benchmark that wants a fresh database, that
@@ -790,6 +788,7 @@ class Benchmark {
     // Create tuning options and create the data file
     config.str("");
     config << "key_format=S,value_format=S";
+    config << ",prefix_compression=false";
     if (FLAGS_cache_size < SMALL_CACHE) {
         config << ",internal_page_max=4kb";
         config << ",leaf_page_max=4kb";
@@ -799,8 +798,6 @@ class Benchmark {
 	if (FLAGS_use_lsm)
 		config << ",lsm_chunk_size=20MB";
     }
-    if (FLAGS_nopfx)
-       config << ",prefix_compression=false";
     //config << ",lsm_bloom_newest=true";
     if (FLAGS_bloom_bits > 0)
         config << ",bloom_bit_count=" << FLAGS_bloom_bits;
@@ -1174,8 +1171,6 @@ int main(int argc, char** argv) {
     } else if (sscanf(argv[i], "--use_lsm=%d%c", &n, &junk) == 1 &&
                (n == 0 || n == 1)) {
       FLAGS_use_lsm = n;
-    } else if (strncmp(argv[i], "--nopfx", 7) == 0) {
-      FLAGS_nopfx = true;
     } else if (sscanf(argv[i], "--use_existing_db=%d%c", &n, &junk) == 1 &&
                (n == 0 || n == 1)) {
       FLAGS_use_existing_db = n;

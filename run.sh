@@ -170,31 +170,11 @@ while :
 		}
 		test_compress
 		shift;;
-	wtp|wtpfx|wtlsmp)
-		fname=WTlsmpfx
-		libp=$wtlib_path
-		prog=./db_bench_wiredtiger
-		benchargs="$origbenchargs --nopfx"
-		test "$smallrun" == "yes" && {
-			benchargs="$benchargs --cache_size=$mb4wt"
-		}
-		test_compress
-		shift;;
 	wtb|wiredtigerb)
 		fname=WTbtree
 		libp=$wtlib_path
 		prog=./db_bench_wiredtiger
 		benchargs="$origbenchargs --use_lsm=0"
-		test "$smallrun" == "yes" && {
-			benchargs="$benchargs --cache_size=$mb4wt"
-		}
-		test_compress
-		shift;;
-	wtbp|wtbpfx)
-		fname=WTbtreepfx
-		libp=$wtlib_path
-		prog=./db_bench_wiredtiger
-		benchargs="$origbenchargs --use_lsm=0 --nopfx"
 		test "$smallrun" == "yes" && {
 			benchargs="$benchargs --cache_size=$mb4wt"
 		}

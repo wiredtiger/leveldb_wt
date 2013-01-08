@@ -9,7 +9,8 @@ BASHO_PATH="../basho.leveldb"
 BDB_PATH="../db-5.3.21/build_unix"
 MDB_PATH="../mdb/libraries/liblmdb"
 SNAPPY_PATH="ext/compressors/snappy/.libs/"
-WT_PATH="../wiredtiger/build_posix"
+WTDBG_PATH="../wiredtiger.dbg/build_posix"
+WTOPT_PATH="../wiredtiger/build_posix"
 
 test_compress()
 {
@@ -20,6 +21,19 @@ test_compress()
 		exit 1
 	fi
 }
+
+if test -f doc/bench/db_bench_wiredtiger.cc; then
+	#
+	# If the sources have a sleep in it, then we're profiling.  Use
+	# the debug library so functions are not inlined.
+	#
+	grep -q sleep doc/bench/db_bench_wiredtiger.cc
+	if test "$?" -eq 0; then
+		WT_PATH=$WTDBG_PATH
+	else
+		WT_PATH=$WTOPT_PATH
+	fi
+fi
 
 if [ `uname` == "Darwin" ]; then
 	basholib_path="DYLD_LIBRARY_PATH=$BASHO_PATH:"

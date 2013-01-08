@@ -2,7 +2,8 @@
 # Build Wired Tiger Level DB benchmark.
 # Assumes that a pre-built Wired Tiger library exists in ../wiredtiger.
 
-WT_PATH="../wiredtiger/build_posix"
+WTOPT_PATH="../wiredtiger/build_posix"
+WTDBG_PATH="../wiredtiger.dbg/build_posix"
 BDB_PATH="../db-5.3.21/build_unix"
 BASHO_PATH="../basho.leveldb"
 MDB_PATH="../mdb/libraries/liblmdb"
@@ -11,10 +12,20 @@ SNAPPY_PATH="ext/compressors/snappy/.libs"
 make && make db_bench
 echo "Making DB-specific benchmarks"
 if test -f doc/bench/db_bench_wiredtiger.cc; then
-    echo "Making SYMAS configured WT benchmark into db_bench_wtsymas"
-    rm -f doc/bench/db_bench_wiredtiger.o
-    env LDFLAGS="-L$WT_PATH/.libs" CXXFLAGS="-I$WT_PATH -DSYMAS_CONFIG" make db_bench_wiredtiger
-    mv db_bench_wiredtiger db_bench_wtsymas
+    #
+    # If the sources have a sleep in it, then we're profiling.  Use
+    # the debug library so functions are not inlined.
+    #
+    grep -q sleep doc/bench/db_bench_wiredtiger.cc
+    if test "$?" -eq 0; then
+	    WT_PATH=$WTDBG_PATH
+    else
+	    WT_PATH=$WTOPT_PATH
+	    echo "Making SYMAS configured WT benchmark into db_bench_wtsymas"
+	    rm -f doc/bench/db_bench_wiredtiger.o
+	    env LDFLAGS="-L$WT_PATH/.libs" CXXFLAGS="-I$WT_PATH -DSYMAS_CONFIG" make db_bench_wiredtiger
+	    mv db_bench_wiredtiger db_bench_wtsymas
+    fi
     rm -f doc/bench/db_bench_wiredtiger.o
     echo "Making standard WT benchmark"
     env LDFLAGS="-L$WT_PATH/.libs" CXXFLAGS="-I$WT_PATH" make db_bench_wiredtiger

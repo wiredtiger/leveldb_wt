@@ -789,6 +789,7 @@ class Benchmark {
     config.str("");
     config << "key_format=S,value_format=S";
     config << ",prefix_compression=false";
+    config << ",checksum=off";
     if (FLAGS_cache_size < SMALL_CACHE) {
         config << ",internal_page_max=4kb";
         config << ",leaf_page_max=4kb";

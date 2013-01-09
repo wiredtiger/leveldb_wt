@@ -88,6 +88,11 @@ while :
 		origbenchargs=""
 		op="small"
 		shift;;
+	big512)
+		smallrun="no"
+		origbenchargs="--cache_size=$mb512"
+		op="big512"
+		shift;;
 	big|large)
 		smallrun="no"
 		origbenchargs="--cache_size=$mb128"

@@ -793,9 +793,12 @@ class Benchmark {
     if (FLAGS_cache_size < SMALL_CACHE) {
         config << ",internal_page_max=4kb";
         config << ",leaf_page_max=4kb";
+	config << ",memory_page_max=" << FLAGS_cache_size;
     } else {
+	int memmax = FLAGS_cache_size * 0.9;
         config << ",internal_page_max=16kb";
         config << ",leaf_page_max=16kb";
+	config << ",memory_page_max=" << memmax;
 	if (FLAGS_use_lsm)
 		config << ",lsm_chunk_size=20MB";
     }
@@ -848,7 +851,12 @@ class Benchmark {
         txn_config << ",sync=none";
 
     WT_CURSOR *cursor;
-    int ret = thread->session->open_cursor(thread->session, uri_.c_str(), NULL, "overwrite", &cursor);
+    std::stringstream cur_config;
+    cur_config.str("");
+    cur_config << "overwrite";
+    if (seq)
+	cur_config << ",bulk=true";
+    int ret = thread->session->open_cursor(thread->session, uri_.c_str(), NULL, cur_config.str().c_str(), &cursor);
     if (ret != 0) {
       fprintf(stderr, "open_cursor error: %s\n", wiredtiger_strerror(ret));
       exit(1);
@@ -861,7 +869,7 @@ class Benchmark {
         int k = seq ? i+j : (thread->rand.Next() % FLAGS_num);
 #endif
         if (k == 0)
-          k++; /* Wired Tiger does not support 0 keys. */
+          continue; /* Wired Tiger does not support 0 keys. */
         char key[100];
         snprintf(key, sizeof(key), "%016d", k);
         cursor->set_key(cursor, key);

@@ -864,7 +864,7 @@ class Benchmark {
     std::stringstream cur_config;
     cur_config.str("");
     cur_config << "overwrite";
-    if (seq)
+    if (seq && FLAGS_threads == 1)
 	cur_config << ",bulk=true";
     int ret = thread->session->open_cursor(thread->session, uri_.c_str(), NULL, cur_config.str().c_str(), &cursor);
     if (ret != 0) {
@@ -1070,9 +1070,11 @@ class Benchmark {
           continue; /* Wired Tiger does not support 0 keys. */
 	cursor->set_key(cursor, key);
 	if ((ret = cursor->remove(cursor)) != 0) {
-          fprintf(stderr, "del error: key %s %s\n", key, wiredtiger_strerror(ret));
-	  exit(1);
-	}
+		if (FLAGS_threads == 1 || ret != WT_NOTFOUND) {
+			fprintf(stderr, "del error: key %s %s\n", key, wiredtiger_strerror(ret));
+			exit(1);
+		}
+        }
         thread->stats.FinishedSingleOp();
         bytes += strlen(key);
       }

@@ -42,6 +42,14 @@
 //      heapprofile -- Dump a heap profile (if supported by this port)
 static const char* FLAGS_benchmarks =
     "fillseq,"
+    "deleteseq,"
+    "fillseq,"
+    "deleterandom,"
+    "fillrandom,"
+    "deleteseq,"
+    "fillrandom,"
+    "deleterandom,"
+    "fillseq,"
     "fillsync,"
     "fillrandom,"
     "overwrite,"
@@ -53,6 +61,8 @@ static const char* FLAGS_benchmarks =
     "readseq,"
     "readreverse,"
     "fill100K,"
+    "fillseq,"
+    "readhot,"
 #if 0
     "compact,"
     "crc32c,"
@@ -103,6 +113,10 @@ static bool FLAGS_use_existing_db = false;
 
 // Use the db with the following name.
 static const char* FLAGS_db = NULL;
+
+#ifdef RAND_SHUFFLE
+static int *shuff = NULL;
+#endif
 
 namespace leveldb {
 
@@ -718,6 +732,10 @@ class Benchmark {
       thread->stats.AddMessage(msg);
     }
 
+#ifdef RAND_SHUFFLE
+    if (!seq)
+	    thread->rand.Shuffle(shuff, num_);
+#endif
     RandomGenerator gen;
     WriteBatch batch;
     Status s;
@@ -725,7 +743,11 @@ class Benchmark {
     for (int i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
       for (int j = 0; j < entries_per_batch_; j++) {
-        const int k = seq ? i+j : (thread->rand.Next() % FLAGS_num);
+#ifdef RAND_SHUFFLE
+        int k = seq ? i+j : shuff[i+j];
+#else
+        int k = seq ? i+j : (thread->rand.Next() % FLAGS_num);
+#endif
         char key[100];
         snprintf(key, sizeof(key), "%016d", k);
         batch.Put(key, gen.Generate(value_size_));
@@ -833,10 +855,18 @@ class Benchmark {
     RandomGenerator gen;
     WriteBatch batch;
     Status s;
+#ifdef RAND_SHUFFLE
+    if (!seq)
+	    thread->rand.Shuffle(shuff, num_);
+#endif
     for (int i = 0; i < num_; i += entries_per_batch_) {
       batch.Clear();
       for (int j = 0; j < entries_per_batch_; j++) {
-        const int k = seq ? i+j : (thread->rand.Next() % FLAGS_num);
+#ifdef RAND_SHUFFLE
+        int k = seq ? i+j : shuff[i+j];
+#else
+        int k = seq ? i+j : (thread->rand.Next() % FLAGS_num);
+#endif
         char key[100];
         snprintf(key, sizeof(key), "%016d", k);
         batch.Delete(key);
@@ -974,6 +1004,11 @@ int main(int argc, char** argv) {
       FLAGS_db = default_db_path.c_str();
   }
 
+#ifdef RAND_SHUFFLE
+    shuff = (int *)malloc(FLAGS_num * sizeof(int));
+      for (int i=0; i<FLAGS_num; i++)
+	            shuff[i] = i;
+#endif
   leveldb::Benchmark benchmark;
   benchmark.Run();
   return 0;

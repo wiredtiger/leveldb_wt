@@ -37,14 +37,22 @@
 //      sstables    -- Print sstable info
 //      heapprofile -- Dump a heap profile (if supported by this port)
 static const char* FLAGS_benchmarks =
+#ifndef SYMAS_CONFIG
     "fillseq,"
-#ifdef SYMAS_CONFIG
+    "deleteseq,"
+    "fillseq,"
+    "deleterandom,"
+    "fillrandom,"
+    "deleteseq,"
+    "fillrandom,"
+    "deleterandom,"
+    "fillseq,"
+    "fillsync,"
+#else
     "fillseqsync,"
     "fillrandsync,"
     "fillseqbatch,"
     "fillrandbatch,"
-#else
-    "fillsync,"
 #endif
     "fillrandom,"
     "overwrite,"
@@ -59,6 +67,8 @@ static const char* FLAGS_benchmarks =
     "readseq,"
     "readreverse,"
     "fill100K,"
+    "fillseq,"
+    "readhot,"
 #if 0
     "compact,"
     "crc32c,"
@@ -114,7 +124,7 @@ static bool FLAGS_use_existing_db = false;
 // Use the db with the following name.
 static const char* FLAGS_db = NULL;
 
-#ifdef SYMAS_CONFIG
+#ifdef RAND_SHUFFLE
 static int *shuff = NULL;
 #endif
 
@@ -795,7 +805,7 @@ class Benchmark {
         config << ",leaf_page_max=4kb";
 	config << ",memory_page_max=" << FLAGS_cache_size;
     } else {
-	int memmax = FLAGS_cache_size * 0.9;
+	int memmax = FLAGS_cache_size * 0.75;
         config << ",internal_page_max=16kb";
         config << ",leaf_page_max=16kb";
 	config << ",memory_page_max=" << memmax;
@@ -836,7 +846,7 @@ class Benchmark {
       thread->stats.AddMessage(msg);
     }
 
-#ifdef SYMAS_CONFIG
+#ifdef RAND_SHUFFLE
     if (!seq)
         thread->rand.Shuffle(shuff, num_);
 #endif
@@ -863,7 +873,7 @@ class Benchmark {
     }
     for (int i = 0; i < num_; i += entries_per_batch_) {
       for (int j = 0; j < entries_per_batch_; j++) {
-#ifdef SYMAS_CONFIG
+#ifdef RAND_SHUFFLE
         int k = seq ? i+j : shuff[i+j];
 #else
         int k = seq ? i+j : (thread->rand.Next() % FLAGS_num);
@@ -1029,12 +1039,17 @@ class Benchmark {
 
   void DoDelete(ThreadState* thread, bool seq) {
     const char *ckey;
+    int64_t bytes = 0;
     WT_CURSOR *cursor;
     int ret = thread->session->open_cursor(thread->session, uri_.c_str(), NULL, NULL, &cursor);
     if (ret != 0) {
       fprintf(stderr, "open_cursor error: %s\n", wiredtiger_strerror(ret));
 	  exit(1);
     }
+#ifdef RAND_SHUFFLE
+    if (!seq)
+        thread->rand.Shuffle(shuff, num_);
+#endif
     std::stringstream txn_config;
     txn_config.str("");
     txn_config << "isolation=snapshot";
@@ -1044,17 +1059,26 @@ class Benchmark {
 	    txn_config << ",sync=none";
     for (int i = 0; i < num_; i += entries_per_batch_) {
       for (int j = 0; j < entries_per_batch_; j++) {
-        const int k = seq ? i+j : (thread->rand.Next() % FLAGS_num);
+#ifdef RAND_SHUFFLE
+        int k = seq ? i+j : shuff[i+j];
+#else
+        int k = seq ? i+j : (thread->rand.Next() % FLAGS_num);
+#endif
         char key[100];
         snprintf(key, sizeof(key), "%016d", k);
+        if (k == 0)
+          continue; /* Wired Tiger does not support 0 keys. */
 	cursor->set_key(cursor, key);
-	if (cursor->remove(cursor) != 0) {
-          fprintf(stderr, "del error: %s\n", wiredtiger_strerror(ret));
+	if ((ret = cursor->remove(cursor)) != 0) {
+          fprintf(stderr, "del error: key %s %s\n", key, wiredtiger_strerror(ret));
 	  exit(1);
 	}
         thread->stats.FinishedSingleOp();
+        bytes += strlen(key);
       }
     }
+    cursor->close(cursor);
+    thread->stats.AddBytes(bytes);
   }
 
   void DeleteSeq(ThreadState* thread) {
@@ -1214,7 +1238,7 @@ int main(int argc, char** argv) {
       FLAGS_db = default_db_path.c_str();
   }
 
-#ifdef SYMAS_CONFIG
+#ifdef RAND_SHUFFLE
   shuff = (int *)malloc(FLAGS_num * sizeof(int));
   for (int i=0; i<FLAGS_num; i++)
       shuff[i] = i;

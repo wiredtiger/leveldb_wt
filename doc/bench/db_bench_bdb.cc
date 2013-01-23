@@ -91,7 +91,7 @@ static bool FLAGS_transaction = true;
 // Use the db with the following name.
 static const char* FLAGS_db = NULL;
 
-#ifdef SYMAS_CONFIG
+#ifdef RAND_SHUFFLE
 static int *shuff = NULL;
 #endif
 
@@ -501,7 +501,7 @@ class Benchmark {
     } else {
 	db_->txn_checkpoint(db_,0,0,DB_FORCE);
     }
-#ifdef SYMAS_CONFIG
+#ifdef RAND_SHUFFLE
     if (order == RANDOM)
 	  rand_.Shuffle(shuff, num_entries);
 #endif
@@ -529,7 +529,7 @@ class Benchmark {
 	  
 	  for (int j=0; j < entries_per_batch; j++) {
 
-#ifdef SYMAS_CONFIG
+#ifdef RAND_SHUFFLE
       const int k = (order == SEQUENTIAL) ? i+j : shuff[i+j];
 #else
       int k = (order == SEQUENTIAL) ? i+j : (rand_.Next() % FLAGS_num);
@@ -639,7 +639,7 @@ int main(int argc, char** argv) {
       FLAGS_db = default_db_path.c_str();
   }
 
-#ifdef SYMAS_CONFIG
+#ifdef RAND_SHUFFLE
   shuff = (int *)malloc(FLAGS_num * sizeof(int));
   for (int i=0; i<FLAGS_num; i++)
    shuff[i] = i;

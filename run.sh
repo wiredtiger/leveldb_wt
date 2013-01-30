@@ -50,17 +50,11 @@ else
 fi
 
 #
-# Test to run is one of (default big):
-# small - 4Mb cache (or 6Mb, smallest WT can use), no other args.
-# big|large - 128Mb cache,
+# Workload to run, see -w below, is one of (default big):
+# small - 4Mb cache (or 6Mb, smallest WT can use).
+# big|large - 128Mb cache.
 # val - 4Mb cache (or 6Mb for WT), 100000 byte values, limit to 10000 items.
 # bigval - 512Mb cache, 100000 byte values, limit to 4000 items.
-#
-# It runs the op that is in force at the time it finds the db to run.
-# So, an example would be:
-# run.sh 5 fast wt lvl bdb
-# run.sh 2 small wt lvl mdb
-# run.sh bigval wt wtbtree lvl
 #
 mb128=134217728
 mb512=536870912
@@ -68,53 +62,80 @@ origbenchargs="--cache_size=$mb128"
 mdb_benchargs=""
 mb4="4194304"
 mb4wt="6537216"
-smallrun="no"
-op="big"
-fdir="./DATA"
-count=3
-fastdir="/mnt/fast/leveldbtest"
-tmpdir="TEST_TMPDIR="
+
+#
 # The first set of args control the script or the program.  The remaining
-# args are the database types to run.
-while :
-	do case "$1" in
-	fast)
-		if [ -e $fastdir ]; then
-	 		tmpdir="TEST_TMPDIR=$fastdir"
-		fi
-		shift;;
-	small)
-		smallrun="yes"
-		origbenchargs=""
-		op="small"
-		shift;;
-	big512)
-		smallrun="no"
-		origbenchargs="--cache_size=$mb512"
-		op="big512"
-		shift;;
-	big|large)
-		smallrun="no"
-		origbenchargs="--cache_size=$mb128"
-		op="big"
-		shift;;
-	bigval)
-		smallrun="no"
-		origbenchargs="--cache_size=$mb512 --value_size=100000 --num=4000"
-		op="bigval"
-		shift;;
-	val|smval)
-		smallrun="yes"
-		origbenchargs="--value_size=100000 --num=10000"
-		op="val"
-		shift;;
-	1|2|3|4|5|6|7|8|9)
-		count=$1
-		shift;;
+# args are the database types to run.  It will run the configured controls
+# on all the database types listed as the remaining args.
+#
+# Args are:
+# -F - (no arg) Turn off fast path directory checking.  Default off.
+# -h - (no arg) Echo usage help statement and exit.
+# -n # - Number of times to run the program for each database type. Default 3.
+# -t # - Number of threads to pass to program via --threads.  Default 1.
+# NOTE: If a database type cannot support the number of threads given,
+# it drops the number of threads to 1, but still runs the benchmark.
+# -w <big|big512|bigval|small|val> - Workload to run.  Default big.
+count=3
+fdir="./DATA"
+op="big"
+smallrun="no"
+threadarg=1
+ssddir="/mnt/fast/leveldbtest"
+tmpfsdir="/tmpfs/leveldbtest"
+
+usage="[-F][-h][-n #][-t #][-w <big|big512|bigval|small|val>] db_source ..."
+while getopts "Fhn:t:w:" Arg ;
+	do case "$Arg" in
+	F)
+		tmpfsdir=""
+		ssddir=""
+		;;
+	h)
+		echo $usage
+		exit 0
+		;;
+	n)
+		count=$OPTARG
+		;;
+	t)
+		threadarg=$OPTARG
+		;;
+	w)
+		case "$OPTARG" in
+		small)
+			smallrun="yes"
+			origbenchargs=""
+			op="small";;
+		big512)
+			smallrun="no"
+			origbenchargs="--cache_size=$mb512"
+			op="big512";;
+		big|large)
+			smallrun="no"
+			origbenchargs="--cache_size=$mb128"
+			op="big";;
+		bigval)
+			smallrun="no"
+			origbenchargs="--cache_size=$mb512 --value_size=100000 --num=4000"
+			op="bigval";;
+		val|smval)
+			smallrun="yes"
+			origbenchargs="--value_size=100000 --num=10000"
+			op="val";;
+		*)
+			echo $usage
+			exit 1;;
+		esac
+		;;
 	*)
-		break;;
+		echo $usage
+		exit 1
+		;;
 	esac
 done
+
+shift `expr $OPTIND - 1`
 
 # Now that we have the operation to run, do so on all remaining DB types.
 while :
@@ -210,14 +231,40 @@ while :
 	*)
 		break;;
 	esac
+	
+	# Check if we have a thread number set > 1.  Only LevelDB and
+	# WiredTiger benchmarks accepts a thread number.  The others
+	# don't support it.
+	if [ $threadarg > 1 ]; then
+		case "$fname" in
+		*LevelDB* | *WT*)
+			threads=$threadarg
+			benchargs="$benchargs --threads=$threads"
+			;;
+		*)
+			echo "WARNING: Thread argument ($threads) unsupported for $fname."
+			echo "WARNING: Running with 1 thread only."
+			threads=1
+			;;
+		esac
+	fi
+
+	# Check if any of our pre-defined fast path directories exist.
+	# Try the AWS SSD first.  If not, then tmpfs.
+	if test ! -z $ssddir -a -e $ssddir; then
+		benchargs="$benchargs --db=$ssddir"
+	elif test ! -z $tmpfsdir -a -e $tmpfsdir; then
+		benchargs="$benchargs --db=$tmpfsdir"
+	fi
+
 	# If we have a command to execute do so.
 	if test -e $prog; then
 		i=0
 		while test "$i" != "$count" ; do
-			name=$fdir/$op.$$.$i.$fname
+			name=$fdir/$op.$$.$i.$fname.$threads
 			echo "Benchmark output in $name"
-			echo "env $libp $tmpdir $prog $benchargs"
-			time env "$libp" "$tmpdir" $prog $benchargs > $name
+			echo "env $libp $prog $benchargs"
+			time env "$libp" $prog $benchargs > $name
 			i=`expr $i + 1`
 		done
 	else

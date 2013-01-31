@@ -321,6 +321,10 @@ struct ThreadState {
   ThreadState(int index, WT_CONNECTION *conn)
       : tid(index),
         rand(1000 + index) {
+#ifdef	RAND_SHUFFLE
+    if (index == 0)
+	rand.Shuffle(shuff, FLAGS_num);
+#endif
     conn->open_session(conn, NULL, NULL, &session);
     assert(session != NULL);
   }
@@ -846,10 +850,6 @@ class Benchmark {
       thread->stats.AddMessage(msg);
     }
 
-#ifdef RAND_SHUFFLE
-    if (!seq)
-        thread->rand.Shuffle(shuff, num_);
-#endif
     RandomGenerator gen;
     int64_t bytes = 0;
     std::stringstream txn_config;
@@ -1046,10 +1046,6 @@ class Benchmark {
       fprintf(stderr, "open_cursor error: %s\n", wiredtiger_strerror(ret));
 	  exit(1);
     }
-#ifdef RAND_SHUFFLE
-    if (!seq)
-        thread->rand.Shuffle(shuff, num_);
-#endif
     std::stringstream txn_config;
     txn_config.str("");
     txn_config << "isolation=snapshot";

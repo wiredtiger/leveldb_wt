@@ -80,12 +80,13 @@ count=3
 fdir="./DATA"
 op="big"
 smallrun="no"
+suffix=""
 threadarg=1
 ssddir="/mnt/fast/leveldbtest"
 tmpfsdir="/tmpfs/leveldbtest"
 
-usage="[-F][-h][-n #][-t #][-w <big|big512|bigval|small|val>] db_source ..."
-while getopts "Fhn:t:w:" Arg ;
+usage="[-F][-h][-n #][-s suffix][-t #][-w <big|big512|bigval|small|val>] db_source ..."
+while getopts "Fhn:s:t:w:" Arg ;
 	do case "$Arg" in
 	F)
 		tmpfsdir=""
@@ -97,6 +98,9 @@ while getopts "Fhn:t:w:" Arg ;
 		;;
 	n)
 		count=$OPTARG
+		;;
+	s)
+		suffix=$OPTARG
 		;;
 	t)
 		threadarg=$OPTARG
@@ -232,22 +236,21 @@ while :
 		break;;
 	esac
 	
-	# Check if we have a thread number set > 1.  Only LevelDB and
-	# WiredTiger benchmarks accepts a thread number.  The others
-	# don't support it.
-	if [ $threadarg > 1 ]; then
-		case "$fname" in
-		*LevelDB* | *WT*)
-			threads=$threadarg
-			benchargs="$benchargs --threads=$threads"
-			;;
-		*)
+	# Set number of threads.  Some don't support it.
+	case "$fname" in
+	*LevelDB* | *WT*)
+		threads=$threadarg
+		benchargs="$benchargs --threads=$threads"
+		;;
+	*)
+		if test "$threadarg" -gt "1"; then
 			echo "WARNING: Thread argument ($threads) unsupported for $fname."
 			echo "WARNING: Running with 1 thread only."
-			threads=1
-			;;
-		esac
-	fi
+		fi
+		threads=1
+		;;
+	esac
+	fname=$fname$suffix
 
 	# Check if any of our pre-defined fast path directories exist.
 	# Try the AWS SSD first.  If not, then tmpfs.

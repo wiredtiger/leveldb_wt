@@ -590,6 +590,18 @@ class Benchmark {
           }
           Open();
         }
+      } else if (FLAGS_use_existing_db) {
+          /*
+	   * We get here if we don't want to use a fresh db and
+	   * don't want to skip this benchmark.  We just want to
+	   * resue the DB that already exists for the current benchmark.
+	   */
+          if (conn_ != NULL) {
+            conn_->close(conn_, NULL);
+            conn_ = NULL;
+          }
+          Open();
+	  fprintf(stderr, "Reusing existing DB %s\n",uri_.c_str());
       }
 
       if (method != NULL) {

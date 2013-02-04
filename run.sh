@@ -85,12 +85,11 @@ threadarg=1
 ssddir="/mnt/fast/leveldbtest"
 tmpfsdir="/tmpfs/leveldbtest"
 
-usage="[-F][-h][-n #][-s suffix][-t #][-w <big|big512|bigval|small|val>] db_source ..."
-while getopts "Fhn:s:t:w:" Arg ;
+usage="[-d dir][-h][-n #][-s suffix][-S][-T][-t #][-w <big|big512|bigval|small|val>] db_source ..."
+while getopts "d:hn:Ss:Tt:w:" Arg ;
 	do case "$Arg" in
-	F)
-		tmpfsdir=""
-		ssddir=""
+	d)
+		datadir=$OPTARG
 		;;
 	h)
 		echo $usage
@@ -101,6 +100,12 @@ while getopts "Fhn:s:t:w:" Arg ;
 		;;
 	s)
 		suffix=$OPTARG
+		;;
+	S)
+		datadir=$ssddir
+		;;
+	T)
+		datadir=$tmpfsdir
 		;;
 	t)
 		threadarg=$OPTARG
@@ -252,12 +257,14 @@ while :
 	esac
 	fname=$fname$suffix
 
-	# Check if any of our pre-defined fast path directories exist.
-	# Try the AWS SSD first.  If not, then tmpfs.
-	if test ! -z $ssddir -a -e $ssddir; then
-		benchargs="$benchargs --db=$ssddir"
-	elif test ! -z $tmpfsdir -a -e $tmpfsdir; then
-		benchargs="$benchargs --db=$tmpfsdir"
+	# Check if there is a data directory defined.
+	if test ! -z $datadir; then
+		if test -e $datadir; then
+			benchargs="$benchargs --db=$datadir"
+		else
+			echo "Data directory $datadir does not exist."
+			exit 1
+		fi
 	fi
 
 	# If we have a command to execute do so.

@@ -77,6 +77,7 @@ mb4wt="6537216"
 # it drops the number of threads to 1, but still runs the benchmark.
 # -w <big|big512|bigval|small|val> - Workload to run.  Default big.
 count=3
+extraargs=""
 fdir="./DATA"
 op="big"
 smallrun="no"
@@ -85,9 +86,12 @@ threadarg=1
 ssddir="/mnt/fast/leveldbtest"
 tmpfsdir="/tmpfs/leveldbtest"
 
-usage="[-d dir][-h][-n #][-s suffix][-S][-T][-t #][-w <big|big512|bigval|small|val>] db_source ..."
-while getopts "d:hn:Ss:Tt:w:" Arg ;
+usage="[-a bench_args][-d dir][-h][-n #][-s suffix][-S][-T][-t #][-w <big|big512|bigval|small|val>] db_source ..."
+while getopts "a:d:hn:Ss:Tt:w:" Arg ;
 	do case "$Arg" in
+	a)
+		extraargs=$OPTARG
+		;;
 	d)
 		datadir=$OPTARG
 		;;
@@ -266,6 +270,8 @@ while :
 			exit 1
 		fi
 	fi
+	# Add on any args the user specified.
+	benchargs="$benchargs $extraargs"
 
 	# If we have a command to execute do so.
 	if test -e $prog; then

@@ -69,6 +69,10 @@ static const char* FLAGS_benchmarks =
     "fill100K,"
     "fillseq,"
     "readhot,"
+    "readrandomsmall,"
+    "readrandomsmall,"
+    "seekrandom,"
+    "readwhilewriting,"
 #if 0
     "compact,"
     "crc32c,"
@@ -1116,7 +1120,10 @@ class Benchmark {
 
         const char *ckey;
         WT_CURSOR *cursor;
-        int ret = thread->session->open_cursor(thread->session, uri_.c_str(), NULL, NULL, &cursor);
+        std::stringstream cur_config;
+        cur_config.str("");
+        cur_config << "overwrite";
+        int ret = thread->session->open_cursor(thread->session, uri_.c_str(), NULL, cur_config.str().c_str(), &cursor);
         if (ret != 0) {
           fprintf(stderr, "open_cursor error: %s\n", wiredtiger_strerror(ret));
         exit(1);

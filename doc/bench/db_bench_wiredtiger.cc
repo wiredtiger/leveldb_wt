@@ -925,6 +925,7 @@ class Benchmark {
 
     int64_t bytes = 0;
     int i = 0;
+repeat:
     while (cursor->next(cursor) == 0 && i < reads_) {
       cursor->get_key(cursor, &ckey);
       cursor->get_value(cursor, &cvalue);
@@ -932,6 +933,12 @@ class Benchmark {
       thread->stats.FinishedSingleOp();
       ++i;
     }
+    /*
+     * Allow repetitive reads, simply wrapping back if the number of
+     * reads exceeds the number of keys to read.
+     */
+    if (i < reads_ && cursor->reset(cursor) == 0)
+	goto repeat;
 
     cursor->close(cursor);
     thread->stats.AddBytes(bytes);
@@ -948,6 +955,7 @@ class Benchmark {
 
     int64_t bytes = 0;
     int i = 0;
+repeat:
     while (cursor->prev(cursor) == 0 && i < reads_) {
       cursor->get_key(cursor, &ckey);
       cursor->get_value(cursor, &cvalue);
@@ -955,6 +963,12 @@ class Benchmark {
       thread->stats.FinishedSingleOp();
       ++i;
     }
+    /*
+     * Allow repetitive reads, simply wrapping back if the number of
+     * reads exceeds the number of keys to read.
+     */
+    if (i < reads_ && cursor->reset(cursor) == 0)
+	goto repeat;
 
     cursor->close(cursor);
     thread->stats.AddBytes(bytes);

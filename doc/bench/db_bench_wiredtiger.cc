@@ -926,7 +926,7 @@ class Benchmark {
     int64_t bytes = 0;
     int i = 0;
 repeat:
-    while (cursor->next(cursor) == 0 && i < reads_) {
+    while ((ret = cursor->next(cursor)) == 0 && i < reads_) {
       cursor->get_key(cursor, &ckey);
       cursor->get_value(cursor, &cvalue);
       bytes += strlen(ckey) + strlen(cvalue);
@@ -937,8 +937,12 @@ repeat:
      * Allow repetitive reads, simply wrapping back if the number of
      * reads exceeds the number of keys to read.
      */
-    if (i < reads_ && cursor->reset(cursor) == 0)
+    if (ret == 0 && i < reads_ && cursor->reset(cursor) == 0)
 	goto repeat;
+    if (ret != 0) {
+      fprintf(stderr, "cursor_next error: %s\n", wiredtiger_strerror(ret));
+      exit(1);
+    }
 
     cursor->close(cursor);
     thread->stats.AddBytes(bytes);
@@ -956,7 +960,7 @@ repeat:
     int64_t bytes = 0;
     int i = 0;
 repeat:
-    while (cursor->prev(cursor) == 0 && i < reads_) {
+    while ((ret = cursor->prev(cursor)) == 0 && i < reads_) {
       cursor->get_key(cursor, &ckey);
       cursor->get_value(cursor, &cvalue);
       bytes += strlen(ckey) + strlen(cvalue);
@@ -967,9 +971,13 @@ repeat:
      * Allow repetitive reads, simply wrapping back if the number of
      * reads exceeds the number of keys to read.
      */
-    if (i < reads_ && cursor->reset(cursor) == 0)
+    if (ret == 0 && i < reads_ && cursor->reset(cursor) == 0)
 	goto repeat;
 
+    if (ret != 0) {
+      fprintf(stderr, "cursor_next error: %s\n", wiredtiger_strerror(ret));
+      exit(1);
+    }
     cursor->close(cursor);
     thread->stats.AddBytes(bytes);
   }

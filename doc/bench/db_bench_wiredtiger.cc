@@ -792,7 +792,8 @@ class Benchmark {
 #define SMALL_CACHE 10*1024*1024
     std::stringstream config;
     config.str("");
-    config << "create";
+    if (!FLAGS_use_existing_db)
+      config << "create";
     if (FLAGS_cache_size > 0)
       config << ",cache_size=" << FLAGS_cache_size;
     /* TODO: Translate write_buffer_size - maybe it's chunk size?
@@ -815,39 +816,40 @@ class Benchmark {
 		    FLAGS_use_lsm ? "lsm" : "table", ++db_num_);
     uri_ = uri;
 
-    // Create tuning options and create the data file
-    config.str("");
-    config << "key_format=S,value_format=S";
-    config << ",prefix_compression=false";
-    config << ",checksum=off";
-    if (FLAGS_cache_size < SMALL_CACHE) {
-        config << ",internal_page_max=4kb";
-        config << ",leaf_page_max=4kb";
-	config << ",memory_page_max=" << FLAGS_cache_size;
-    } else {
-	int memmax = FLAGS_cache_size * 0.75;
-        config << ",internal_page_max=16kb";
-        config << ",leaf_page_max=16kb";
-	config << ",memory_page_max=" << memmax;
-	if (FLAGS_use_lsm)
+    if (!FLAGS_use_existing_db) {
+      // Create tuning options and create the data file
+      config.str("");
+      config << "key_format=S,value_format=S";
+      config << ",prefix_compression=false";
+      config << ",checksum=off";
+      if (FLAGS_cache_size < SMALL_CACHE) {
+          config << ",internal_page_max=4kb";
+          config << ",leaf_page_max=4kb";
+    	  config << ",memory_page_max=" << FLAGS_cache_size;
+      } else {
+    	  int memmax = FLAGS_cache_size * 0.75;
+          config << ",internal_page_max=16kb";
+          config << ",leaf_page_max=16kb";
+  	  config << ",memory_page_max=" << memmax;
+	  if (FLAGS_use_lsm)
 		config << ",lsm_chunk_size=20MB";
-    }
-    //config << ",lsm_bloom_newest=true";
-    if (FLAGS_bloom_bits > 0)
+      }
+      //config << ",lsm_bloom_newest=true";
+      if (FLAGS_bloom_bits > 0)
         config << ",bloom_bit_count=" << FLAGS_bloom_bits;
-    else if (FLAGS_bloom_bits == 0)
+      else if (FLAGS_bloom_bits == 0)
         config << ",lsm_bloom=false";
 #ifndef SYMAS_CONFIG
-    config << ",block_compressor=snappy";
+      config << ",block_compressor=snappy";
 #endif
-
-    fprintf(stderr, "Creating %s with config %s\n",uri_.c_str(), config.str().c_str());
-    int ret = session->create(session, uri_.c_str(), config.str().c_str());
-    if (ret != 0) {
-      fprintf(stderr, "create error: %s\n", wiredtiger_strerror(ret));
-      exit(1);
+      fprintf(stderr, "Creating %s with config %s\n",uri_.c_str(), config.str().c_str());
+      int ret = session->create(session, uri_.c_str(), config.str().c_str());
+      if (ret != 0) {
+        fprintf(stderr, "create error: %s\n", wiredtiger_strerror(ret));
+        exit(1);
+      }
+      session->close(session, NULL);
     }
-    session->close(session, NULL);
 
   }
 
@@ -937,10 +939,10 @@ repeat:
      * Allow repetitive reads, simply wrapping back if the number of
      * reads exceeds the number of keys to read.
      */
-    if (ret == 0 && i < reads_ && cursor->reset(cursor) == 0)
+    if ((i % (FLAGS_num - 1)) == 0 && i < reads_ && cursor->reset(cursor) == 0)
 	goto repeat;
     if (ret != 0) {
-      fprintf(stderr, "cursor_next error: %s\n", wiredtiger_strerror(ret));
+      fprintf(stderr, "ReadSeq: cursor_next i %d error: %s\n", i, wiredtiger_strerror(ret));
       exit(1);
     }
 
@@ -971,11 +973,11 @@ repeat:
      * Allow repetitive reads, simply wrapping back if the number of
      * reads exceeds the number of keys to read.
      */
-    if (ret == 0 && i < reads_ && cursor->reset(cursor) == 0)
+    if ((i % (FLAGS_num - 1)) == 0 && i < reads_ && cursor->reset(cursor) == 0)
 	goto repeat;
 
     if (ret != 0) {
-      fprintf(stderr, "cursor_next error: %s\n", wiredtiger_strerror(ret));
+      fprintf(stderr, "ReadReverse: cursor_next i %d error: %s\n", i, wiredtiger_strerror(ret));
       exit(1);
     }
     cursor->close(cursor);

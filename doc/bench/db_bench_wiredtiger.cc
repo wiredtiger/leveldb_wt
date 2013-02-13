@@ -750,8 +750,8 @@ class Benchmark {
     while (ok && bytes < 1024 * 1048576) {  // Compress 1G
       ok = port::Snappy_Compress(input.data(), input.size(), &compressed);
       produced += compressed.size();
-      bytes += input.size();
       thread->stats.FinishedSingleOp();
+      bytes += input.size();
     }
 
     if (!ok) {
@@ -775,8 +775,8 @@ class Benchmark {
     while (ok && bytes < 1024 * 1048576) {  // Compress 1G
       ok =  port::Snappy_Uncompress(compressed.data(), compressed.size(),
                                     uncompressed);
-      bytes += input.size();
       thread->stats.FinishedSingleOp();
+      bytes += input.size();
     }
     delete[] uncompressed;
 
@@ -908,8 +908,8 @@ class Benchmark {
           fprintf(stderr, "set error: %s\n", wiredtiger_strerror(ret));
           exit(1);
         }
-        bytes += value_size_ + strlen(key);
         thread->stats.FinishedSingleOp();
+        bytes += value_size_ + strlen(key);
       }
     }
     cursor->close(cursor);
@@ -931,8 +931,8 @@ repeat:
     while ((ret = cursor->next(cursor)) == 0 && i < reads_) {
       cursor->get_key(cursor, &ckey);
       cursor->get_value(cursor, &cvalue);
-      bytes += strlen(ckey) + strlen(cvalue);
       thread->stats.FinishedSingleOp();
+      bytes += strlen(ckey) + strlen(cvalue);
       ++i;
     }
     /*
@@ -965,8 +965,8 @@ repeat:
     while ((ret = cursor->prev(cursor)) == 0 && i < reads_) {
       cursor->get_key(cursor, &ckey);
       cursor->get_value(cursor, &cvalue);
-      bytes += strlen(ckey) + strlen(cvalue);
       thread->stats.FinishedSingleOp();
+      bytes += strlen(ckey) + strlen(cvalue);
       ++i;
     }
     /*

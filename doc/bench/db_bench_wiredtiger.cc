@@ -125,6 +125,9 @@ static bool FLAGS_use_lsm = true;
 // benchmark will fail.
 static bool FLAGS_use_existing_db = false;
 
+// Stagger starting point of reads for sequential (or reverse).
+static bool FLAGS_stagger = false;
+
 // Use the db with the following name.
 static const char* FLAGS_db = NULL;
 
@@ -870,6 +873,7 @@ class Benchmark {
 
     RandomGenerator gen;
     int64_t bytes = 0;
+    int stagger = 0;
     std::stringstream txn_config;
     txn_config.str("");
     txn_config << "isolation=snapshot";
@@ -884,6 +888,9 @@ class Benchmark {
     cur_config << "overwrite";
     if (seq && FLAGS_threads == 1)
 	cur_config << ",bulk=true";
+    if (FLAGS_stagger)
+      stagger = (FLAGS_num / FLAGS_threads) * thread->tid;
+
     int ret = thread->session->open_cursor(thread->session, uri_.c_str(), NULL, cur_config.str().c_str(), &cursor);
     if (ret != 0) {
       fprintf(stderr, "open_cursor error: %s\n", wiredtiger_strerror(ret));
@@ -892,9 +899,9 @@ class Benchmark {
     for (int i = 0; i < num_; i += entries_per_batch_) {
       for (int j = 0; j < entries_per_batch_; j++) {
 #ifdef RAND_SHUFFLE
-        int k = seq ? i+j : shuff[i+j];
+        int k = seq ? (i+j+stagger) % FLAGS_num : shuff[(i+j+stagger)%FLAGS_num];
 #else
-        int k = seq ? i+j : (thread->rand.Next() % FLAGS_num);
+        int k = seq ? (i+j+stagger) % FLAGS_num : (thread->rand.Next() % FLAGS_num);
 #endif
         if (k == 0)
           continue; /* Wired Tiger does not support 0 keys. */
@@ -918,6 +925,7 @@ class Benchmark {
 
   void ReadSequential(ThreadState* thread) {
     const char *ckey, *cvalue;
+    char key[100];
     WT_CURSOR *cursor;
     int ret = thread->session->open_cursor(thread->session, uri_.c_str(), NULL, NULL, &cursor);
     if (ret != 0) {
@@ -927,6 +935,16 @@ class Benchmark {
 
     int64_t bytes = 0;
     int i = 0;
+    int k;
+    if (FLAGS_stagger) {
+      k = (FLAGS_num / FLAGS_threads) * thread->tid + 1;
+      snprintf(key, sizeof(key), "%016d", k);
+      cursor->set_key(cursor, key);
+      if (cursor->search(cursor) != 0) {
+        fprintf(stderr, "cursor search for key %d error: %s\n", k, wiredtiger_strerror(ret));
+        exit(1);
+      }
+    }
 repeat:
     while ((ret = cursor->next(cursor)) == 0 && i < reads_) {
       cursor->get_key(cursor, &ckey);
@@ -939,10 +957,11 @@ repeat:
      * Allow repetitive reads, simply wrapping back if the number of
      * reads exceeds the number of keys to read.
      */
-    if ((i % (FLAGS_num - 1)) == 0 && i < reads_ && cursor->reset(cursor) == 0)
+    sscanf(ckey, "%d", &k);
+    if (k == (FLAGS_num - 1) && i < reads_ && cursor->reset(cursor) == 0)
 	goto repeat;
     if (ret != 0) {
-      fprintf(stderr, "ReadSeq: cursor_next i %d error: %s\n", i, wiredtiger_strerror(ret));
+      fprintf(stderr, "ReadSeq: cursor_next ckey %s k %d i %d error: %s\n", ckey, k, i, wiredtiger_strerror(ret));
       exit(1);
     }
 
@@ -952,6 +971,7 @@ repeat:
 
   void ReadReverse(ThreadState* thread) {
     const char *ckey, *cvalue;
+    char key[100];
     WT_CURSOR *cursor;
     int ret = thread->session->open_cursor(thread->session, uri_.c_str(), NULL, NULL, &cursor);
     if (ret != 0) {
@@ -961,6 +981,19 @@ repeat:
 
     int64_t bytes = 0;
     int i = 0;
+    int k;
+    if (FLAGS_stagger) {
+      k = (FLAGS_num / FLAGS_threads) * thread->tid + 1;
+      snprintf(key, sizeof(key), "%016d", k);
+      cursor->set_key(cursor, key);
+      if (cursor->search(cursor) != 0) {
+        fprintf(stderr, "cursor search for key %d error: %s\n", k, wiredtiger_strerror(ret));
+        exit(1);
+      }
+      // Make sure ckey has a valid value in it in case we are at the front
+      // and the while loop below is skipped initially.
+      cursor->get_key(cursor, &ckey);
+    }
 repeat:
     while ((ret = cursor->prev(cursor)) == 0 && i < reads_) {
       cursor->get_key(cursor, &ckey);
@@ -973,11 +1006,12 @@ repeat:
      * Allow repetitive reads, simply wrapping back if the number of
      * reads exceeds the number of keys to read.
      */
-    if ((i % (FLAGS_num - 1)) == 0 && i < reads_ && cursor->reset(cursor) == 0)
+    sscanf(ckey, "%d", &k);
+    if (k == 1 && i < reads_ && cursor->reset(cursor) == 0)
 	goto repeat;
 
     if (ret != 0) {
-      fprintf(stderr, "ReadReverse: cursor_next i %d error: %s\n", i, wiredtiger_strerror(ret));
+      fprintf(stderr, "ReadReverse: cursor_next ckey %s k %d i %d error: %s\n", ckey, k, i, wiredtiger_strerror(ret));
       exit(1);
     }
     cursor->close(cursor);
@@ -1252,6 +1286,9 @@ int main(int argc, char** argv) {
       FLAGS_num = n;
     } else if (sscanf(argv[i], "--reads=%d%c", &n, &junk) == 1) {
       FLAGS_reads = n;
+    } else if (sscanf(argv[i], "--stagger=%d%c", &n, &junk) == 1 &&
+               (n == 0 || n == 1)) {
+      FLAGS_stagger = n;
     } else if (sscanf(argv[i], "--threads=%d%c", &n, &junk) == 1) {
       FLAGS_threads = n;
     } else if (sscanf(argv[i], "--value_size=%d%c", &n, &junk) == 1) {

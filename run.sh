@@ -69,9 +69,14 @@ mb4wt="6537216"
 # on all the database types listed as the remaining args.
 #
 # Args are:
+# -a args - Pass the given args along to the benchmark.
+# -d dir - Use the given path for the benchmark.
 # -F - (no arg) Turn off fast path directory checking.  Default off.
 # -h - (no arg) Echo usage help statement and exit.
 # -n # - Number of times to run the program for each database type. Default 3.
+# -s suffix - Add the suffix string to the workload name.
+# -S - Use the path to the SSD drive.
+# -T - Use the path to the tmpfs.
 # -t # - Number of threads to pass to program via --threads.  Default 1.
 # NOTE: If a database type cannot support the number of threads given,
 # it drops the number of threads to 1, but still runs the benchmark.

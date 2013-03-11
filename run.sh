@@ -199,6 +199,14 @@ while :
 			benchargs="$origbenchargs --cache_size=$mb4"
 		}
 		shift;;
+	ldbe|lvlext|lext|lvle)
+		fname=LevelDBExt
+		libp=$levellib_path
+		prog=./db_bench_lvlext
+		test "$smallrun" == "yes" && {
+			benchargs="$origbenchargs --cache_size=$mb4"
+		}
+		shift;;
 	ldbs|leveldbs|lvldbs|lvls)
 		fname=LevelDB-symas
 		libp=$levellib_path
@@ -232,6 +240,25 @@ while :
 		fname=WTbtree
 		libp=$wtlib_path
 		prog=./db_bench_wiredtiger
+		benchargs="$origbenchargs --use_lsm=0"
+		test "$smallrun" == "yes" && {
+			benchargs="$benchargs --cache_size=$mb4wt"
+		}
+		test_compress
+		shift;;
+	wte|wtext|wtextlsm)
+		fname=WTlsmExt
+		libp=$wtlib_path
+		prog=./db_bench_wtext
+		test "$smallrun" == "yes" && {
+			benchargs="$origbenchargs --cache_size=$mb4wt"
+		}
+		test_compress
+		shift;;
+	wtbe|wtbext)
+		fname=WTbtreeExt
+		libp=$wtlib_path
+		prog=./db_bench_wtext
 		benchargs="$origbenchargs --use_lsm=0"
 		test "$smallrun" == "yes" && {
 			benchargs="$benchargs --cache_size=$mb4wt"

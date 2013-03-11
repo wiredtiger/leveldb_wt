@@ -41,6 +41,7 @@
 //      sstables    -- Print sstable info
 //      heapprofile -- Dump a heap profile (if supported by this port)
 static const char* FLAGS_benchmarks =
+#ifdef	BENCH_EXT
     "fillseq,"
     "deleteseq,"
     "fillseq,"
@@ -49,6 +50,7 @@ static const char* FLAGS_benchmarks =
     "deleteseq,"
     "fillrandom,"
     "deleterandom,"
+#endif
     "fillseq,"
     "fillsync,"
     "fillrandom,"
@@ -61,9 +63,9 @@ static const char* FLAGS_benchmarks =
     "readseq,"
     "readreverse,"
     "fill100K,"
+#ifdef	BENCH_EXT
     "fillseq,"
     "readhot,"
-#if 0
     "compact,"
     "crc32c,"
     "snappycomp,"

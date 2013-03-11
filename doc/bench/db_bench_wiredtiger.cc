@@ -37,43 +37,46 @@
 //      sstables    -- Print sstable info
 //      heapprofile -- Dump a heap profile (if supported by this port)
 static const char* FLAGS_benchmarks =
-#ifndef SYMAS_CONFIG
-    "fillseq,"
-    "deleteseq,"
-    "fillseq,"
-    "deleterandom,"
-    "fillrandom,"
-    "deleteseq,"
-    "fillrandom,"
-    "deleterandom,"
-    "fillseq,"
-    "fillsync,"
-#else
+#ifdef	SYMAS_CONFIG
     "fillseqsync,"
     "fillrandsync,"
     "fillseqbatch,"
     "fillrandbatch,"
-#endif
     "fillrandom,"
     "overwrite,"
     "readrandom,"
-#ifndef SYMAS_CONFIG
-    "readrandom,"  // Extra run to allow previous compactions to quiesce
-#endif
     "readseq,"
     "readreverse,"
-#ifndef SYMAS_CONFIG
+#else
+#ifdef	BENCH_EXT
+    "fillseq,"
+    "deleteseq,"
+    "fillseq,"
+    "deleterandom,"
+    "fillrandom,"
+    "deleteseq,"
+    "fillrandom,"
+    "deleterandom,"
+#endif
+    "fillseq,"
+    "fillsync,"
+    "fillrandom,"
+    "overwrite,"
+    "readrandom,"
+    "readrandom,"  // Extra run to allow previous compactions to quiesce
+    "readseq,"
+    "readreverse,"
     "readrandom,"
     "readseq,"
     "readreverse,"
     "fill100K,"
+#ifdef	BENCH_EXT
     "fillseq,"
     "readhot,"
     "readrandomsmall,"
     "readrandomsmall,"
     "seekrandom,"
     "readwhilewriting,"
-#if 0
     "compact,"
     "crc32c,"
     "snappycomp,"

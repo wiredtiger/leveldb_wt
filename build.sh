@@ -9,7 +9,10 @@ BASHO_PATH="../basho.leveldb"
 MDB_PATH="../mdb/libraries/liblmdb"
 SNAPPY_PATH="ext/compressors/snappy/.libs"
 
-make && make db_bench
+make && env CXXFLAGS="-DRAND_SHUFFLE -DBENCH_EXT" make db_bench
+mv db_bench db_bench_lvlext
+rm -f db/db_bench.o
+make db_bench
 echo "Making DB-specific benchmarks"
 if test -f doc/bench/db_bench_wiredtiger.cc; then
     #
@@ -26,6 +29,12 @@ if test -f doc/bench/db_bench_wiredtiger.cc; then
 	    env LDFLAGS="-L$WT_PATH/.libs" CXXFLAGS="-I$WT_PATH -DSYMAS_CONFIG" make db_bench_wiredtiger
 	    mv db_bench_wiredtiger db_bench_wtsymas
     fi
+
+    rm -f doc/bench/db_bench_wiredtiger.o
+    echo "Making extended, shuffle WT benchmark into db_bench_wtext"
+    env LDFLAGS="-L$WT_PATH/.libs" CXXFLAGS="-I$WT_PATH -DRAND_SHUFFLE -DBENCH_EXT" make db_bench_wiredtiger
+    mv db_bench_wiredtiger db_bench_wtext
+
     rm -f doc/bench/db_bench_wiredtiger.o
     echo "Making standard WT benchmark"
     env LDFLAGS="-L$WT_PATH/.libs" CXXFLAGS="-I$WT_PATH" make db_bench_wiredtiger

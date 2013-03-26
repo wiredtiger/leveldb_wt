@@ -59,7 +59,7 @@ if test -e $BASHO_PATH; then
     fi
 fi
 
-if test -f doc/bench/db_bench_bdb.cc; then
+if test -f doc/bench/db_bench_bdb.cc && test -s $BDB_PATH; then
     echo "Making SYMAS configured BerkeleyDB benchmark into db_bench_bdbsymas"
     rm -f doc/bench/db_bench_bdb.o
     env LDFLAGS="-L$BDB_PATH/.libs" CXXFLAGS="-I$BDB_PATH -DSYMAS_CONFIG" make db_bench_bdb

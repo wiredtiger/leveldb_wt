@@ -141,7 +141,7 @@ def gen_2D_gnuplot(opfx, dname, op, fixedparamStr, glist):
     fd.write('set style data histogram\n')
     fd.write('set format y "%9.0f"\n')
     fd.write('set xlabel "DB Source"\n')
-    fd.write('set ylabel "Operations/sec"\n')
+    fd.write('set ylabel "Operations/sec per thread"\n')
     fd.write('set yrange [0:]\n')
     fd.write('set grid\n')
     fd.write('set boxwidth 0.5 relative\n')

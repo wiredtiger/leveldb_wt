@@ -828,15 +828,17 @@ class Benchmark {
       config << "key_format=S,value_format=S";
       config << ",prefix_compression=false";
       config << ",checksum=off";
-      if (FLAGS_cache_size < SMALL_CACHE) {
+      if (FLAGS_cache_size < SMALL_CACHE && FLAGS_cache_size > 0) {
           config << ",internal_page_max=4kb";
           config << ",leaf_page_max=4kb";
     	  config << ",memory_page_max=" << FLAGS_cache_size;
       } else {
-    	  int memmax = FLAGS_cache_size * 0.75;
           config << ",internal_page_max=16kb";
           config << ",leaf_page_max=16kb";
-  	  config << ",memory_page_max=" << memmax;
+	  if (FLAGS_cache_size > 0) {
+		  int memmax = FLAGS_cache_size * 0.75;
+		  config << ",memory_page_max=" << memmax;
+	  }
 	  if (FLAGS_use_lsm)
 		config << ",lsm_chunk_size=20MB";
       }

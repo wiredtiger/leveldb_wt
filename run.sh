@@ -95,7 +95,7 @@ usage="[-a bench_args][-d dir][-h][-n #][-s suffix][-S][-T][-t #][-w <big|big512
 while getopts "a:d:hn:Ss:Tt:w:" Arg ;
 	do case "$Arg" in
 	a)
-		extraargs=$OPTARG
+		extraargs+=$OPTARG" "
 		;;
 	d)
 		datadir=$OPTARG

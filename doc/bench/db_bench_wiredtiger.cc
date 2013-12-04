@@ -38,7 +38,7 @@
 //      sstables    -- Print sstable info
 //      heapprofile -- Dump a heap profile (if supported by this port)
 static const char* FLAGS_benchmarks =
-#ifdef	SYMAS_CONFIG
+#ifdef  SYMAS_CONFIG
     "fillseqsync,"
     "fillrandsync,"
     "fillseqbatch,"
@@ -49,7 +49,7 @@ static const char* FLAGS_benchmarks =
     "readseq,"
     "readreverse,"
 #else
-#ifdef	BENCH_EXT
+#ifdef  BENCH_EXT
     "fillseq,"
     "deleteseq,"
     "fillseq,"
@@ -71,7 +71,7 @@ static const char* FLAGS_benchmarks =
     "readseq,"
     "readreverse,"
     "fill100K,"
-#ifdef	BENCH_EXT
+#ifdef  BENCH_EXT
     "fillseq,"
     "readhot,"
     "readrandomsmall,"
@@ -332,9 +332,9 @@ struct ThreadState {
   ThreadState(int index, WT_CONNECTION *conn)
       : tid(index),
         rand(1000 + index) {
-#ifdef	RAND_SHUFFLE
+#ifdef  RAND_SHUFFLE
     if (index == 0)
-	rand.Shuffle(shuff, FLAGS_num);
+  rand.Shuffle(shuff, FLAGS_num);
 #endif
     conn->open_session(conn, NULL, NULL, &session);
     assert(session != NULL);
@@ -603,29 +603,29 @@ class Benchmark {
         }
       } else if (FLAGS_use_existing_db) {
           /*
-	   * We get here if we don't want to use a fresh db and
-	   * don't want to skip this benchmark.  We just want to
-	   * resue the DB that already exists for the current benchmark.
-	   */
+     * We get here if we don't want to use a fresh db and
+     * don't want to skip this benchmark.  We just want to
+     * resue the DB that already exists for the current benchmark.
+     */
           if (conn_ != NULL) {
             conn_->close(conn_, NULL);
             conn_ = NULL;
           }
           Open();
-	  fprintf(stderr, "Reusing existing DB %s\n",uri_.c_str());
+    fprintf(stderr, "Reusing existing DB %s\n",uri_.c_str());
       }
 
       if (method != NULL) {
         RunBenchmark(num_threads, name, method);
 #ifdef SYMAS_CONFIG
-	if (method == &Benchmark::WriteSeq ||
-	    method == &Benchmark::WriteRandom) {
-	    char cmd[200];
-	    std::string test_dir;
-	    Env::Default()->GetTestDirectory(&test_dir);
-	    sprintf(cmd, "du %s", test_dir.c_str());
-	    system(cmd);
-	}
+  if (method == &Benchmark::WriteSeq ||
+      method == &Benchmark::WriteRandom) {
+      char cmd[200];
+      std::string test_dir;
+      Env::Default()->GetTestDirectory(&test_dir);
+      sprintf(cmd, "du %s", test_dir.c_str());
+      system(cmd);
+  }
 #endif
       }
     }
@@ -821,7 +821,7 @@ class Benchmark {
 
     char uri[100];
     snprintf(uri, sizeof(uri), "%s:dbbench_wt-%d", 
-		    FLAGS_use_lsm ? "lsm" : "table", ++db_num_);
+        FLAGS_use_lsm ? "lsm" : "table", ++db_num_);
     uri_ = uri;
 
     if (!FLAGS_use_existing_db) {
@@ -833,22 +833,26 @@ class Benchmark {
       if (FLAGS_cache_size < SMALL_CACHE && FLAGS_cache_size > 0) {
           config << ",internal_page_max=4kb";
           config << ",leaf_page_max=4kb";
-    	  config << ",memory_page_max=" << FLAGS_cache_size;
+        config << ",memory_page_max=" << FLAGS_cache_size;
       } else {
           config << ",internal_page_max=16kb";
           config << ",leaf_page_max=16kb";
-	  if (FLAGS_cache_size > 0) {
-		  int memmax = FLAGS_cache_size * 0.75;
-		  config << ",memory_page_max=" << memmax;
-	  }
-	  if (FLAGS_use_lsm)
-		config << ",lsm_chunk_size=20MB";
+        if (FLAGS_cache_size > 0) {
+          int memmax = FLAGS_cache_size * 0.75;
+          config << ",memory_page_max=" << memmax;
+        }
       }
-      //config << ",lsm_bloom_newest=true";
-      if (FLAGS_bloom_bits > 0)
-        config << ",bloom_bit_count=" << FLAGS_bloom_bits;
-      else if (FLAGS_bloom_bits == 0)
-        config << ",lsm_bloom=false";
+
+      if (FLAGS_use_lsm) {
+        config << ",lsm=(";
+        if (FLAGS_cache_size > SMALL_CACHE)
+          config << ",chunk_size=20MB";
+        if (FLAGS_bloom_bits > 0)
+          config << ",bloom_bit_count=" << FLAGS_bloom_bits;
+        else if (FLAGS_bloom_bits == 0)
+          config << ",bloom=false";
+        config << ")";
+      }
 #ifndef SYMAS_CONFIG
       config << ",block_compressor=snappy";
 #endif
@@ -894,7 +898,7 @@ class Benchmark {
     cur_config.str("");
     cur_config << "overwrite";
     if (seq && FLAGS_threads == 1)
-	cur_config << ",bulk=true";
+  cur_config << ",bulk=true";
     if (FLAGS_stagger)
       stagger = (FLAGS_num / FLAGS_threads) * thread->tid;
 
@@ -966,7 +970,7 @@ repeat:
      */
     sscanf(ckey, "%d", &k);
     if (k == (FLAGS_num - 1) && i < reads_ && cursor->reset(cursor) == 0)
-	goto repeat;
+  goto repeat;
     if (ret != 0) {
       fprintf(stderr, "ReadSeq: cursor_next ckey %s k %d i %d error: %s\n", ckey, k, i, wiredtiger_strerror(ret));
       exit(1);
@@ -1015,7 +1019,7 @@ repeat:
      */
     sscanf(ckey, "%d", &k);
     if (k == 1 && i < reads_ && cursor->reset(cursor) == 0)
-	goto repeat;
+  goto repeat;
 
     if (ret != 0) {
       fprintf(stderr, "ReadReverse: cursor_next ckey %s k %d i %d error: %s\n", ckey, k, i, wiredtiger_strerror(ret));
@@ -1125,15 +1129,15 @@ repeat:
     int ret = thread->session->open_cursor(thread->session, uri_.c_str(), NULL, NULL, &cursor);
     if (ret != 0) {
       fprintf(stderr, "open_cursor error: %s\n", wiredtiger_strerror(ret));
-	  exit(1);
+    exit(1);
     }
     std::stringstream txn_config;
     txn_config.str("");
     txn_config << "isolation=snapshot";
     if (sync_)
-	    txn_config << ",sync=full";
+      txn_config << ",sync=full";
     else
-	    txn_config << ",sync=none";
+      txn_config << ",sync=none";
     for (int i = 0; i < num_; i += entries_per_batch_) {
       for (int j = 0; j < entries_per_batch_; j++) {
 #ifdef RAND_SHUFFLE
@@ -1145,12 +1149,12 @@ repeat:
         snprintf(key, sizeof(key), "%016d", k);
         if (k == 0)
           continue; /* Wired Tiger does not support 0 keys. */
-	cursor->set_key(cursor, key);
-	if ((ret = cursor->remove(cursor)) != 0) {
-		if (FLAGS_threads == 1 || ret != WT_NOTFOUND) {
-			fprintf(stderr, "del error: key %s %s\n", key, wiredtiger_strerror(ret));
-			exit(1);
-		}
+  cursor->set_key(cursor, key);
+  if ((ret = cursor->remove(cursor)) != 0) {
+    if (FLAGS_threads == 1 || ret != WT_NOTFOUND) {
+      fprintf(stderr, "del error: key %s %s\n", key, wiredtiger_strerror(ret));
+      exit(1);
+    }
         }
         thread->stats.FinishedSingleOp();
         bytes += strlen(key);
@@ -1276,7 +1280,7 @@ repeat:
           fprintf(stderr, "open_cursor error: %s\n", wiredtiger_strerror(ret));
           break;
         }
-        stat_cursor->set_key(stat_cursor, WT_STAT_CONN_LSM_ROWS_MERGED);			
+        stat_cursor->set_key(stat_cursor, WT_STAT_CONN_LSM_ROWS_MERGED);      
         if ((ret = stat_cursor->search(stat_cursor)) != 0) {
           fprintf(stderr, "stat_cursor->search error: %s\n",
             wiredtiger_strerror(ret));

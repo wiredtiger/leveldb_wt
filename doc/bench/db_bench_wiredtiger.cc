@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <sstream>
 #include <unistd.h> /* For sleep */
+#include <errno.h> /* For ETIMEDOUT */
 #include "util/crc32c.h"
 #include "util/histogram.h"
 #include "util/mutexlock.h"
@@ -131,6 +132,9 @@ static bool FLAGS_use_existing_db = false;
 
 // Stagger starting point of reads for sequential (or reverse).
 static bool FLAGS_stagger = false;
+
+// Stagger starting point of reads for sequential (or reverse).
+static int FLAGS_max_compact_wait = 1200;
 
 // Use the db with the following name.
 static const char* FLAGS_db = NULL;
@@ -803,7 +807,6 @@ class Benchmark {
       config << "create";
     if (FLAGS_cache_size > 0)
       config << ",cache_size=" << FLAGS_cache_size;
-    config << ",statistics=[fast,clear]"; // Required for compact to work.
     /* TODO: Translate write_buffer_size - maybe it's chunk size?
     options.write_buffer_size = FLAGS_write_buffer_size;
     */
@@ -1217,14 +1220,20 @@ repeat:
   }
 
   void Compact(ThreadState* thread) {
-    WT_CURSOR **lsm_cursors, *md_cursor, *stat_cursor;
-    int allocated_cursors, exact, i, lsm_cursor_count, ret;
+    /*
+     * TODO: It probably makes sense to run multiple compacts in parallel
+     * if there are multiple LSM trees. The code to do that involves
+     * opening multiple session handles (and possibly multiple threads), so
+     * don't do that for now.
+     */
+    WT_CURSOR *md_cursor;
+    int exact, ret;
     const char *key;
+    char buf[100]; // For the timeout.
+
     if (!FLAGS_use_lsm)
       return ;
 
-    allocated_cursors = lsm_cursor_count = 0;
-    lsm_cursors = NULL;
     if ((ret = thread->session->open_cursor(
       thread->session, "metadata:", NULL, NULL, &md_cursor)) != 0) {
       fprintf(stderr, "open_cursor error: %s\n", wiredtiger_strerror(ret));
@@ -1241,73 +1250,18 @@ repeat:
       ret = md_cursor->get_key(md_cursor, &key);
       if (ret != 0 || strncmp(key, "lsm:", 4) != 0)
         break;
-      // Grow our cursor array if required.
-      if (lsm_cursor_count >= allocated_cursors) {
-        lsm_cursors = (WT_CURSOR **)realloc(lsm_cursors,
-          (allocated_cursors + 10) * sizeof(WT_CURSOR *));
-        if (lsm_cursors == NULL) {
-          fprintf(stderr, "Malloc failure.\n");
-          exit (1);
-        }
-        allocated_cursors += 10;
-      }
 
-      // Open a cursor on this LSM, so that merges will happen.
-      ret = thread->session->open_cursor(thread->session,
-        key, NULL, NULL, &lsm_cursors[lsm_cursor_count]);
-      if (ret != 0) {
-        fprintf(stderr, "open_cursor error: %s\n", wiredtiger_strerror(ret));
+      // TODO: track how long we've been waiting if there are multiple
+      // LSM trees to compact.
+      snprintf(buf, 100, "timeout=%d", FLAGS_max_compact_wait);
+      // Run a compact on this LSM.
+      if ((ret = thread->session->compact(thread->session, key, buf)) != 0 &&
+        ret != ETIMEDOUT) {
+        fprintf(stderr, "compact error: %s\n", wiredtiger_strerror(ret));
         exit(1);
       }
-      ++lsm_cursor_count;
-
     }
     md_cursor->close(md_cursor);
-    /* Don't bother waiting if there were no LSM trees. */
-    if (lsm_cursor_count != 0) {
-      fprintf(stderr,
-        "Allowing LSM tree to be merged. Can take up to 20 minutes.\n");
-#define COMPACT_STAT_WAIT_TIME  15
-#define COMPACT_MAX_MERGE_TIME  1200
-      int intervals_left = COMPACT_MAX_MERGE_TIME / COMPACT_STAT_WAIT_TIME;
-      const char *desc, *pvalue;
-      uint64_t value;
-      // Track statistics, to so we can tell that merges are happening.
-      while (--intervals_left > 0) {
-        sleep(COMPACT_STAT_WAIT_TIME);
-        if ((ret = thread->session->open_cursor(
-          thread->session, "statistics:", NULL, NULL, &stat_cursor)) != 0) {
-          fprintf(stderr, "open_cursor error: %s\n", wiredtiger_strerror(ret));
-          break;
-        }
-        stat_cursor->set_key(stat_cursor, WT_STAT_CONN_LSM_ROWS_MERGED);      
-        if ((ret = stat_cursor->search(stat_cursor)) != 0) {
-          fprintf(stderr, "stat_cursor->search error: %s\n",
-            wiredtiger_strerror(ret));
-          break;
-        }
-        if ((ret = stat_cursor->get_value(
-          stat_cursor, &desc, &pvalue, &value)) != 0) {
-          fprintf(stderr, "stat_cursor->search error: %s\n",
-            wiredtiger_strerror(ret));
-          break;
-        }
-        if (value == 0) {
-          fprintf(stderr, "Compact: No merge activity in %d seconds, done.\n",
-            COMPACT_STAT_WAIT_TIME);
-          break;
-        }
-        stat_cursor->close(stat_cursor);
-        stat_cursor = NULL;
-      }
-    }
-
-    // Close our cursors.
-    if (stat_cursor != NULL)
-      stat_cursor->close(stat_cursor);
-    for (i = 0; i < lsm_cursor_count; i++)
-      lsm_cursors[i]->close(lsm_cursors[i]);
-    free(lsm_cursors);
   }
 
   void PrintStats(const char* key) {
@@ -1383,6 +1337,8 @@ int main(int argc, char** argv) {
     } else if (sscanf(argv[i], "--use_existing_db=%d%c", &n, &junk) == 1 &&
                (n == 0 || n == 1)) {
       FLAGS_use_existing_db = n;
+    } else if (sscanf(argv[i], "--max_compact_wait=%d%c", &n, &junk) == 1) {
+      FLAGS_max_compact_wait = n;
     } else if (sscanf(argv[i], "--num=%d%c", &n, &junk) == 1) {
       FLAGS_num = n;
     } else if (sscanf(argv[i], "--reads=%d%c", &n, &junk) == 1) {

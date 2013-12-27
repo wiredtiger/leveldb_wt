@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sstream>
-#include <unistd.h> /* For sleep */
+#include <unistd.h> 
 #include <errno.h> /* For ETIMEDOUT */
 #include "util/crc32c.h"
 #include "util/histogram.h"

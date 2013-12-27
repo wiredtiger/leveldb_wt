@@ -44,9 +44,9 @@ if [ `uname` == "Darwin" ]; then
 else
 	basholib_path="LD_LIBRARY_PATH=$BASHO_PATH:"
 	bdblib_path="LD_LIBRARY_PATH=$BDB_PATH/.libs:"
-	levellib_path="LD_LIBRARY_PATH=.:"
+	levellib_path="LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH"
 	mdblib_path="LD_LIBRARY_PATH=$MDB_PATH:"
-	wtlib_path="LD_LIBRARY_PATH=$WT_PATH/.libs:$WT_PATH/$SNAPPY_PATH"
+	wtlib_path="LD_LIBRARY_PATH=$WT_PATH/.libs:$WT_PATH/$SNAPPY_PATH:$LD_LIBRARY_PATH"
 fi
 
 #
